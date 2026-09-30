@@ -1,4 +1,5 @@
-export type Category = "noun" | "phrase";
+/** Category names are admin-managed (see the admin console's Categories page), not a fixed set. */
+export type Category = string;
 
 export type WordStatus = "approved" | "pending" | "rejected";
 
@@ -22,6 +23,19 @@ export interface AdminWord {
   sourceFreq: number | null;
   createdAt: number;
   source: string | null;
+}
+
+export interface CategoryInfo {
+  id: number;
+  name: string;
+  wordCount: number;
+}
+
+export interface CollectionInfo {
+  id: number;
+  name: string;
+  wordCount: number;
+  createdAt: number;
 }
 
 export interface DeckConfig {

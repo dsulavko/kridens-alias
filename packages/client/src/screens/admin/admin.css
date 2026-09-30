@@ -1,6 +1,10 @@
+body.admin-mode #root {
+  justify-content: flex-start;
+}
+
 .admin-page {
   width: 100%;
-  max-width: 960px;
+  max-width: 1320px;
   margin: 0 auto;
   padding: 2rem 1.75rem;
 }
@@ -31,6 +35,81 @@
   backdrop-filter: blur(20px);
 }
 
+.admin-layout {
+  display: flex;
+  gap: 1.25rem;
+  align-items: flex-start;
+}
+
+.admin-sidebar {
+  width: 190px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 1.25rem 1rem;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-card);
+  backdrop-filter: blur(20px);
+  position: sticky;
+  top: 1.5rem;
+}
+
+.admin-nav-item {
+  text-align: left;
+  border-radius: var(--radius-pill);
+  padding: 0.6rem 1rem;
+  background: transparent;
+  border: 1px solid transparent;
+}
+
+.admin-nav-item.active {
+  background: var(--panel-bg-strong);
+  border-color: var(--panel-border);
+}
+
+.admin-nav-logout {
+  margin-top: 1rem;
+  border-top: 1px solid var(--panel-border);
+  border-radius: 0;
+  padding-top: 1rem;
+}
+
+.admin-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-create-form {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.admin-create-form input {
+  flex: 1;
+  min-width: 160px;
+}
+
+.admin-candidate-list {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.admin-candidate-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-pill);
+}
+
 .admin-words-header {
   display: flex;
   align-items: center;
@@ -53,8 +132,26 @@
   min-width: 160px;
 }
 
+.admin-bulk-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.75rem;
+  background: var(--panel-bg-strong);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-card);
+}
+
 .admin-table-wrap {
   overflow-x: auto;
+}
+
+.admin-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding-top: 0.75rem;
 }
 
 .admin-table {
@@ -74,6 +171,37 @@
 .admin-table th {
   color: var(--text-dim);
   font-weight: 500;
+}
+
+.admin-table th.checkbox-col,
+.admin-table td.checkbox-col {
+  width: 2rem;
+  white-space: normal;
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--panel-bg);
+}
+
+.admin-table th.actions-col,
+.admin-table td.actions-col {
+  width: 2.5rem;
+  text-align: center;
+  position: sticky;
+  right: 0;
+  z-index: 1;
+  background: var(--panel-bg);
+}
+
+.admin-table tbody tr:hover td.checkbox-col,
+.admin-table tbody tr:hover td.actions-col {
+  background: var(--panel-bg-strong);
+}
+
+.admin-table td.source-col {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .admin-table th.sortable {

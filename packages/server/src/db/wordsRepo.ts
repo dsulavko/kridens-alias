@@ -1,4 +1,4 @@
-import type { AdminWord, Category, Word } from "@kridens/core";
+import type { AdminWord, Category, Word, WordStatus } from "@kridens/core";
 import { db } from "./client.js";
 import type { WordRow } from "./schema.js";
 
@@ -27,6 +27,35 @@ export function listAllForAdmin(): AdminWord[] {
   return rows.map(toAdminWord);
 }
 
+export function updateWeight(id: number, weight: Word["weight"]) {
+  db.prepare("UPDATE words SET weight = ? WHERE id = ?").run(weight, id);
+}
+
+export function updateWeightBulk(ids: number[], weight: Word["weight"]) {
+  const placeholders = ids.map(() => "?").join(",");
+  db.prepare(`UPDATE words SET weight = ? WHERE id IN (${placeholders})`).run(weight, ...ids);
+}
+
+export function updateStatus(id: number, status: WordStatus) {
+  db.prepare("UPDATE words SET status = ? WHERE id = ?").run(status, id);
+}
+
+export function updateStatusBulk(ids: number[], status: WordStatus) {
+  const placeholders = ids.map(() => "?").join(",");
+  db.prepare(`UPDATE words SET status = ? WHERE id IN (${placeholders})`).run(status, ...ids);
+}
+
+export function deleteWord(id: number) {
+  db.prepare("DELETE FROM word_collections WHERE word_id = ?").run(id);
+  db.prepare("DELETE FROM words WHERE id = ?").run(id);
+}
+
+export function deleteWordsBulk(ids: number[]) {
+  const placeholders = ids.map(() => "?").join(",");
+  db.prepare(`DELETE FROM word_collections WHERE word_id IN (${placeholders})`).run(...ids);
+  db.prepare(`DELETE FROM words WHERE id IN (${placeholders})`).run(...ids);
+}
+
 function toWord(row: WordRow): Word {
   return {
     id: row.id,
@@ -36,7 +65,7 @@ function toWord(row: WordRow): Word {
   };
 }
 
-function toAdminWord(row: WordRow): AdminWord {
+export function toAdminWord(row: WordRow): AdminWord {
   return {
     id: row.id,
     text: row.text,

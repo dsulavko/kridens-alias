@@ -24,3 +24,27 @@ export const CREATE_WORDS_TABLE_SQL = `
 
 /** words.db predates the `source` column — add it in place for databases created before this change. */
 export const ADD_SOURCE_COLUMN_SQL = `ALTER TABLE words ADD COLUMN source TEXT;`;
+
+export const CREATE_CATEGORIES_TABLE_SQL = `
+  CREATE TABLE IF NOT EXISTS categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    created_at INTEGER NOT NULL
+  );
+`;
+
+export const CREATE_COLLECTIONS_TABLE_SQL = `
+  CREATE TABLE IF NOT EXISTS collections (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    created_at INTEGER NOT NULL
+  );
+`;
+
+export const CREATE_WORD_COLLECTIONS_TABLE_SQL = `
+  CREATE TABLE IF NOT EXISTS word_collections (
+    word_id INTEGER NOT NULL,
+    collection_id INTEGER NOT NULL,
+    PRIMARY KEY (word_id, collection_id)
+  );
+`;
