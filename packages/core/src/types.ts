@@ -12,6 +12,17 @@ export interface Word {
   weight: Weight;
 }
 
+/** Full row shape for the admin console — includes moderation/metadata fields the game client never sees. */
+export interface AdminWord {
+  id: number;
+  text: string;
+  category: Category;
+  weight: Weight;
+  status: WordStatus;
+  sourceFreq: number | null;
+  createdAt: number;
+}
+
 export interface DeckConfig {
   /** How many words make up one turn's deck. */
   count: number;

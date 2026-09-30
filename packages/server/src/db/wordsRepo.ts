@@ -1,4 +1,4 @@
-import type { Category, Word } from "@kridens/core";
+import type { AdminWord, Category, Word } from "@kridens/core";
 import { db } from "./client.js";
 import type { WordRow } from "./schema.js";
 
@@ -16,9 +16,9 @@ export function insertWord(input: { text: string; category: Category; weight: Wo
   ).run(input.text, input.category, input.weight, input.sourceFreq ?? null, Date.now());
 }
 
-export function listAll(): Word[] {
-  const rows = db.prepare("SELECT * FROM words").all() as unknown as WordRow[];
-  return rows.map(toWord);
+export function listAllForAdmin(): AdminWord[] {
+  const rows = db.prepare("SELECT * FROM words ORDER BY id").all() as unknown as WordRow[];
+  return rows.map(toAdminWord);
 }
 
 function toWord(row: WordRow): Word {
@@ -27,5 +27,17 @@ function toWord(row: WordRow): Word {
     text: row.text,
     category: row.category,
     weight: row.weight as Word["weight"],
+  };
+}
+
+function toAdminWord(row: WordRow): AdminWord {
+  return {
+    id: row.id,
+    text: row.text,
+    category: row.category,
+    weight: row.weight as Word["weight"],
+    status: row.status,
+    sourceFreq: row.source_freq,
+    createdAt: row.created_at,
   };
 }
