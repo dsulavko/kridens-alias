@@ -10,10 +10,16 @@ export function getApprovedWords(category?: Category): Word[] {
   return rows.map(toWord);
 }
 
-export function insertWord(input: { text: string; category: Category; weight: Word["weight"]; sourceFreq?: number }) {
+export function insertWord(input: {
+  text: string;
+  category: Category;
+  weight: Word["weight"];
+  sourceFreq?: number;
+  source?: string;
+}) {
   db.prepare(
-    "INSERT INTO words (text, category, weight, source_freq, status, created_at) VALUES (?, ?, ?, ?, 'approved', ?)",
-  ).run(input.text, input.category, input.weight, input.sourceFreq ?? null, Date.now());
+    "INSERT INTO words (text, category, weight, source_freq, status, created_at, source) VALUES (?, ?, ?, ?, 'approved', ?, ?)",
+  ).run(input.text, input.category, input.weight, input.sourceFreq ?? null, Date.now(), input.source ?? null);
 }
 
 export function listAllForAdmin(): AdminWord[] {
@@ -39,5 +45,6 @@ function toAdminWord(row: WordRow): AdminWord {
     status: row.status,
     sourceFreq: row.source_freq,
     createdAt: row.created_at,
+    source: row.source,
   };
 }

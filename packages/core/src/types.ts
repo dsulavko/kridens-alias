@@ -21,6 +21,7 @@ export interface AdminWord {
   status: WordStatus;
   sourceFreq: number | null;
   createdAt: number;
+  source: string | null;
 }
 
 export interface DeckConfig {

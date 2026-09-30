@@ -12,7 +12,7 @@ type StatusFilter = WordStatus | "all";
 type WeightFilter = Weight | "all";
 
 const WEIGHT_OPTIONS: Weight[] = [1, 2, 3, 4, 5];
-type SortColumn = "id" | "text" | "category" | "weight" | "status" | "createdAt";
+type SortColumn = "id" | "text" | "category" | "weight" | "status" | "source" | "createdAt";
 type SortDirection = "asc" | "desc";
 
 const COLUMNS: { key: SortColumn; label: string }[] = [
@@ -21,6 +21,7 @@ const COLUMNS: { key: SortColumn; label: string }[] = [
   { key: "category", label: "Категория" },
   { key: "weight", label: "Сложность" },
   { key: "status", label: "Статус" },
+  { key: "source", label: "Источник" },
   { key: "createdAt", label: "Создано" },
 ];
 
@@ -63,8 +64,8 @@ export default function AdminWordsList({ token, onLogout }: AdminWordsListProps)
     });
     const sign = sortDirection === "asc" ? 1 : -1;
     return [...rows].sort((a, b) => {
-      const av = a[sortColumn];
-      const bv = b[sortColumn];
+      const av = a[sortColumn] ?? "";
+      const bv = b[sortColumn] ?? "";
       if (typeof av === "string" && typeof bv === "string") return av.localeCompare(bv) * sign;
       return ((av as number) - (bv as number)) * sign;
     });
@@ -141,6 +142,7 @@ export default function AdminWordsList({ token, onLogout }: AdminWordsListProps)
                   <td>{w.category}</td>
                   <td>{w.weight}</td>
                   <td>{w.status}</td>
+                  <td>{w.source ?? "—"}</td>
                   <td>{new Date(w.createdAt).toLocaleDateString()}</td>
                 </tr>
               ))}
