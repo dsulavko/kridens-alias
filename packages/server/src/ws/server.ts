@@ -57,9 +57,9 @@ function handleMessage(
     case "join_room": {
       const room = roomManager.getRoom(message.roomCode);
       if (!room) return sendError(socket, "Room not found");
-      if (!room.hasTeam(message.teamId)) return sendError(socket, "Unknown team");
+      if (room.hasPlayerName(message.playerName)) return sendError(socket, "Это имя уже занято в комнате");
 
-      room.addPlayer({ id: ctx.playerId, name: message.playerName, teamId: message.teamId, socket });
+      room.addPlayer({ id: ctx.playerId, name: message.playerName, teamId: room.pickBalancedTeamId(), socket });
       ctx.roomCode = room.code;
       room.broadcast();
       return;
@@ -88,6 +88,17 @@ function handleMessage(
       return withRoom(ctx, roomManager, socket, (room) => room.playAgain(ctx.playerId));
     case "new_setup":
       return withRoom(ctx, roomManager, socket, (room) => room.newSetup(ctx.playerId));
+    case "leave_room":
+      return withRoom(ctx, roomManager, socket, (room) => {
+        room.removePlayer(ctx.playerId);
+        ctx.roomCode = null;
+      });
+    case "close_room":
+      return withRoom(ctx, roomManager, socket, (room) => {
+        if (!room.close(ctx.playerId)) return;
+        roomManager.deleteRoom(room.code);
+        ctx.roomCode = null;
+      });
   }
 }
 

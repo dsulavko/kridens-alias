@@ -62,7 +62,7 @@ export interface PlayerInfo {
 
 export type ClientMessage =
   | { type: "create_room"; playerName: string }
-  | { type: "join_room"; roomCode: string; playerName: string; teamId: string }
+  | { type: "join_room"; roomCode: string; playerName: string }
   | { type: "update_rules"; rules: RoomRules }
   | { type: "assign_player"; playerId: string; teamId: string }
   | { type: "shuffle_teams" }
@@ -73,7 +73,9 @@ export type ClientMessage =
   | { type: "toggle_word"; wordId: number }
   | { type: "next_turn" }
   | { type: "play_again" }
-  | { type: "new_setup" };
+  | { type: "new_setup" }
+  | { type: "leave_room" }
+  | { type: "close_room" };
 
 export type ServerMessage =
   | {
@@ -89,4 +91,5 @@ export type ServerMessage =
       turn: TurnState | null;
       winnerId: string | null;
     }
-  | { type: "error"; message: string };
+  | { type: "error"; message: string }
+  | { type: "room_closed" };

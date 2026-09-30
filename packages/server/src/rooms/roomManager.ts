@@ -27,7 +27,7 @@ export class RoomManager {
     return this.rooms.get(code.toUpperCase());
   }
 
-  getPublicTeams(code: string): Array<{ id: string; name: string }> | undefined {
-    return this.getRoom(code)?.getPublicTeams();
+  deleteRoom(code: string): void {
+    this.rooms.delete(code.toUpperCase());
   }
 }

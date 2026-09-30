@@ -26,14 +26,24 @@ export default function MultiplayerGame({ initialJoinCode, onExit }: Multiplayer
     turn,
     winnerId,
     error,
+    roomClosed,
     send,
   } = useRoomConnection();
   const viaLink = Boolean(initialJoinCode);
+
+  function handleExitRoom() {
+    send({ type: "leave_room" });
+    onExit();
+  }
+
+  function handleCloseRoom() {
+    send({ type: "close_room" });
+    onExit();
+  }
   const [lobbyMode, setLobbyMode] = useState<LobbyMode>(initialJoinCode ? "join" : "choice");
   const [playerName, setPlayerName] = useState("");
   const [joinCode, setJoinCode] = useState(initialJoinCode ?? "");
-  const [joinTeams, setJoinTeams] = useState<Array<{ id: string; name: string }> | null>(null);
-  const [joinTeamId, setJoinTeamId] = useState("");
+  const [joinRoomFound, setJoinRoomFound] = useState(false);
   const [joinLookupError, setJoinLookupError] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
 
@@ -45,7 +55,7 @@ export default function MultiplayerGame({ initialJoinCode, onExit }: Multiplayer
 
   useEffect(() => {
     if (joinCode.length !== 4) {
-      setJoinTeams(null);
+      setJoinRoomFound(false);
       setJoinLookupError(null);
       return;
     }
@@ -53,23 +63,36 @@ export default function MultiplayerGame({ initialJoinCode, onExit }: Multiplayer
     fetch(`${SERVER_HTTP_URL}/api/rooms/${joinCode}`)
       .then((res) => {
         if (!res.ok) throw new Error("not found");
-        return res.json() as Promise<{ teams: Array<{ id: string; name: string }> }>;
       })
-      .then((data) => {
+      .then(() => {
         if (cancelled) return;
-        setJoinTeams(data.teams);
-        setJoinTeamId(data.teams[0]?.id ?? "");
+        setJoinRoomFound(true);
         setJoinLookupError(null);
       })
       .catch(() => {
         if (cancelled) return;
-        setJoinTeams(null);
+        setJoinRoomFound(false);
         setJoinLookupError("Комната не найдена");
       });
     return () => {
       cancelled = true;
     };
   }, [joinCode]);
+
+  if (roomClosed) {
+    return (
+      <div className="screen">
+        <div className="modal-overlay">
+          <div className="modal">
+            <p>Эта комната была закрыта её владельцем. Сейчас вы будете перенаправлены на главную страницу.</p>
+            <button className="primary" onClick={onExit}>
+              Принять
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!roomCode) {
     return (
@@ -132,19 +155,10 @@ export default function MultiplayerGame({ initialJoinCode, onExit }: Multiplayer
               disabled={viaLink}
             />
             {joinLookupError && <p className="error">{joinLookupError}</p>}
-            {joinTeams && (
-              <select value={joinTeamId} onChange={(e) => setJoinTeamId(e.target.value)}>
-                {joinTeams.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-            )}
             <button
               className="primary"
-              disabled={status !== "open" || !joinTeams || !playerName.trim()}
-              onClick={() => send({ type: "join_room", roomCode: joinCode, playerName, teamId: joinTeamId })}
+              disabled={status !== "open" || !joinRoomFound || !playerName.trim()}
+              onClick={() => send({ type: "join_room", roomCode: joinCode, playerName })}
             >
               Войти
             </button>
@@ -171,7 +185,8 @@ export default function MultiplayerGame({ initialJoinCode, onExit }: Multiplayer
         onAssignPlayer={(playerId, teamId) => send({ type: "assign_player", playerId, teamId })}
         onShuffleTeams={() => send({ type: "shuffle_teams" })}
         onStartGame={() => send({ type: "start_turn" })}
-        onExit={onExit}
+        onExit={handleExitRoom}
+        onCloseRoom={handleCloseRoom}
       />
     );
   }

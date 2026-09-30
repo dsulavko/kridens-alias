@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { scaledDeckConfig, TEAM_CODE_NAMES, type PlayerInfo, type RoomRules, type TeamState } from "@kridens/core";
+import { pickRandomTeamNames, scaledDeckConfig, type PlayerInfo, type RoomRules, type TeamState } from "@kridens/core";
 import { SERVER_HTTP_URL } from "../../config";
 import ShareRoomLink from "./ShareRoomLink";
 
@@ -19,6 +19,7 @@ interface RoomLobbyProps {
   onShuffleTeams: () => void;
   onStartGame: () => void;
   onExit: () => void;
+  onCloseRoom: () => void;
 }
 
 export default function RoomLobby({
@@ -33,7 +34,9 @@ export default function RoomLobby({
   onShuffleTeams,
   onStartGame,
   onExit,
+  onCloseRoom,
 }: RoomLobbyProps) {
+  const [confirmingClose, setConfirmingClose] = useState(false);
   const [poolSize, setPoolSize] = useState<number | null>(null);
   const [deckSize, setDeckSize] = useState(rules.deckConfig.count);
   const [limitWordsPerTurn, setLimitWordsPerTurn] = useState(rules.limitWordsPerTurn);
@@ -57,7 +60,7 @@ export default function RoomLobby({
 
   function addTeam() {
     if (rules.teamNames.length >= MAX_TEAMS) return;
-    const nextCityName = TEAM_CODE_NAMES.find((name) => !rules.teamNames.includes(name));
+    const [nextCityName] = pickRandomTeamNames(1, rules.teamNames);
     const name = nextCityName ?? `Команда ${rules.teamNames.length + 1}`;
     onUpdateRules({ ...rules, teamNames: [...rules.teamNames, name] });
   }
@@ -82,9 +85,28 @@ export default function RoomLobby({
 
   return (
     <div className="screen">
-      <button className="exit" onClick={onExit}>
-        ← Назад
-      </button>
+      {isHost ? (
+        <button className="exit" onClick={() => setConfirmingClose(true)}>
+          Закрыть комнату
+        </button>
+      ) : (
+        <button className="exit" onClick={onExit}>
+          Выйти
+        </button>
+      )}
+      {confirmingClose && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <p>Вы уверены что хотите закрыть комнату? Все несохранённые данные будут потеряны.</p>
+            <div className="actions">
+              <button onClick={() => setConfirmingClose(false)}>Отмена</button>
+              <button className="danger" onClick={onCloseRoom}>
+                Закрыть комнату
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="room-header-row">
         <h2>Комната {roomCode}</h2>
         <ShareRoomLink roomCode={roomCode} />

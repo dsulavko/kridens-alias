@@ -15,6 +15,7 @@ interface RoomConnectionState {
   turn: TurnState | null;
   winnerId: string | null;
   error: string | null;
+  roomClosed: boolean;
 }
 
 /** Server is the source of truth for room/turn state — this hook only renders what it broadcasts. */
@@ -33,6 +34,7 @@ export function useRoomConnection() {
     turn: null,
     winnerId: null,
     error: null,
+    roomClosed: false,
   });
 
   useEffect(() => {
@@ -60,6 +62,8 @@ export function useRoomConnection() {
         }));
       } else if (message.type === "error") {
         setState((s) => ({ ...s, error: message.message }));
+      } else if (message.type === "room_closed") {
+        setState((s) => ({ ...s, roomClosed: true }));
       }
     };
 

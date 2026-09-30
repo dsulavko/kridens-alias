@@ -52,8 +52,25 @@ export class Room {
     this.players.push(player);
   }
 
+  /** Self-service: a joined (non-host) player leaving the room before it starts. */
+  removePlayer(playerId: string) {
+    this.players = this.players.filter((p) => p.id !== playerId);
+    this.broadcast();
+  }
+
   removeSocket(socket: WebSocket) {
     this.players = this.players.filter((p) => p.socket !== socket);
+  }
+
+  /** Host-only: tell everyone the room is gone before the manager tears it down. */
+  close(requesterId: string): boolean {
+    if (requesterId !== this.hostId) return false;
+    const message: ServerMessage = { type: "room_closed" };
+    for (const player of this.players) {
+      if (player.socket.readyState !== player.socket.OPEN) continue;
+      player.socket.send(JSON.stringify(message));
+    }
+    return true;
   }
 
   /** Host-only, and only before the game has started — teams/deck/timer are locked in once play begins. */
@@ -250,12 +267,27 @@ export class Room {
     return this.teams.some((t) => t.id === teamId);
   }
 
-  getTeams(): TeamState[] {
-    return this.teams;
+  /** Joining players don't pick a team themselves — only the host assigns teams (drag-and-drop in the lobby). */
+  pickBalancedTeamId(): string {
+    let best = this.teams[0];
+    let bestCount = this.players.filter((p) => p.teamId === best.id).length;
+    for (const team of this.teams.slice(1)) {
+      const count = this.players.filter((p) => p.teamId === team.id).length;
+      if (count < bestCount) {
+        best = team;
+        bestCount = count;
+      }
+    }
+    return best.id;
   }
 
-  getPublicTeams(): Array<{ id: string; name: string }> {
-    return this.teams.map((t) => ({ id: t.id, name: t.name }));
+  hasPlayerName(name: string): boolean {
+    const normalized = name.trim().toLowerCase();
+    return this.players.some((p) => p.name.trim().toLowerCase() === normalized);
+  }
+
+  getTeams(): TeamState[] {
+    return this.teams;
   }
 }
 

@@ -17,7 +17,17 @@ export const TEAM_CODE_NAMES = [
   "Стокгольм",
 ];
 
-export function defaultRoomRules(teamNames: string[] = TEAM_CODE_NAMES.slice(0, 2)): RoomRules {
+/** A random, non-repeating sample from the codename pool, so new rooms/teams don't always land on the same names. */
+export function pickRandomTeamNames(count: number, excludeNames: string[] = []): string[] {
+  const available = TEAM_CODE_NAMES.filter((name) => !excludeNames.includes(name));
+  for (let i = available.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [available[i], available[j]] = [available[j], available[i]];
+  }
+  return available.slice(0, count);
+}
+
+export function defaultRoomRules(teamNames: string[] = pickRandomTeamNames(2)): RoomRules {
   return {
     teamNames,
     deckConfig: DEFAULT_DECK_CONFIG,

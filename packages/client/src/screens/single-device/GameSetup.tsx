@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { scaledDeckConfig, TEAM_CODE_NAMES, type DeckConfig } from "@kridens/core";
+import { pickRandomTeamNames, scaledDeckConfig, type DeckConfig } from "@kridens/core";
 
 const MAX_TEAMS = 10;
 
@@ -23,7 +23,7 @@ interface GameSetupProps {
 const REQUIRED_FIELD_MESSAGE = "Заполните это поле";
 
 export default function GameSetup({ maxDeckSize, initialConfig, onStart, onExit }: GameSetupProps) {
-  const [teamNames, setTeamNames] = useState<string[]>(initialConfig?.teamNames ?? TEAM_CODE_NAMES.slice(0, 2));
+  const [teamNames, setTeamNames] = useState<string[]>(initialConfig?.teamNames ?? pickRandomTeamNames(2));
   const [invalidTeamIndexes, setInvalidTeamIndexes] = useState<Set<number>>(new Set());
   const [deckSize, setDeckSize] = useState(initialConfig?.deckConfig.count ?? Math.min(10, maxDeckSize));
   const [limitWordsPerTurn, setLimitWordsPerTurn] = useState(initialConfig?.limitWordsPerTurn ?? false);
@@ -46,7 +46,7 @@ export default function GameSetup({ maxDeckSize, initialConfig, onStart, onExit 
     setInvalidTeamIndexes(new Set());
     setTeamNames((names) => {
       if (names.length >= MAX_TEAMS) return names;
-      const nextCityName = TEAM_CODE_NAMES.find((name) => !names.includes(name));
+      const [nextCityName] = pickRandomTeamNames(1, names);
       return [...names, nextCityName ?? `Команда ${names.length + 1}`];
     });
   }
