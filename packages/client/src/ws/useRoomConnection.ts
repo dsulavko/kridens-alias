@@ -1,12 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ClientMessage, ServerMessage, TeamState, TurnState } from "@kridens/core";
+import type { ClientMessage, PlayerInfo, RoomRules, ServerMessage, TeamState, TurnState } from "@kridens/core";
 import { SERVER_WS_URL } from "../config";
 
 interface RoomConnectionState {
   status: "connecting" | "open" | "closed";
   roomCode: string | null;
   teams: TeamState[];
+  players: PlayerInfo[];
+  hostId: string | null;
+  yourId: string | null;
+  rules: RoomRules | null;
+  started: boolean;
+  activePlayerId: string | null;
   turn: TurnState | null;
+  winnerId: string | null;
   error: string | null;
 }
 
@@ -17,7 +24,14 @@ export function useRoomConnection() {
     status: "connecting",
     roomCode: null,
     teams: [],
+    players: [],
+    hostId: null,
+    yourId: null,
+    rules: null,
+    started: false,
+    activePlayerId: null,
     turn: null,
+    winnerId: null,
     error: null,
   });
 
@@ -34,7 +48,14 @@ export function useRoomConnection() {
           ...s,
           roomCode: message.roomCode,
           teams: message.teams,
+          players: message.players,
+          hostId: message.hostId,
+          yourId: message.yourId,
+          rules: message.rules,
+          started: message.started,
+          activePlayerId: message.activePlayerId,
           turn: message.turn,
+          winnerId: message.winnerId,
           error: null,
         }));
       } else if (message.type === "error") {

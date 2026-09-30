@@ -14,16 +14,20 @@ function generateRoomCode(): string {
 export class RoomManager {
   private rooms = new Map<string, Room>();
 
-  createRoom(teamNames: string[], wordPool: Word[]): Room {
+  createRoom(hostId: string, wordPool: Word[]): Room {
     let code = generateRoomCode();
     while (this.rooms.has(code)) code = generateRoomCode();
 
-    const room = new Room(code, teamNames, wordPool);
+    const room = new Room(code, hostId, wordPool);
     this.rooms.set(code, room);
     return room;
   }
 
   getRoom(code: string): Room | undefined {
     return this.rooms.get(code.toUpperCase());
+  }
+
+  getPublicTeams(code: string): Array<{ id: string; name: string }> | undefined {
+    return this.getRoom(code)?.getPublicTeams();
   }
 }

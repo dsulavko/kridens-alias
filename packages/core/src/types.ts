@@ -44,14 +44,49 @@ export interface TurnState {
 
 // --- Client <-> Server protocol -------------------------------------------
 
+export interface RoomRules {
+  teamNames: string[];
+  deckConfig: DeckConfig;
+  limitWordsPerTurn: boolean;
+  turnDurationMs: number;
+  winScore: number;
+  limitScore: boolean;
+  allowSkip: boolean;
+}
+
+export interface PlayerInfo {
+  id: string;
+  name: string;
+  teamId: string;
+}
+
 export type ClientMessage =
-  | { type: "create_room"; playerName: string; teamNames: string[] }
+  | { type: "create_room"; playerName: string }
   | { type: "join_room"; roomCode: string; playerName: string; teamId: string }
+  | { type: "update_rules"; rules: RoomRules }
+  | { type: "assign_player"; playerId: string; teamId: string }
+  | { type: "shuffle_teams" }
   | { type: "start_turn" }
   | { type: "mark_guessed" }
   | { type: "mark_skipped" }
-  | { type: "end_turn" };
+  | { type: "end_turn" }
+  | { type: "toggle_word"; wordId: number }
+  | { type: "next_turn" }
+  | { type: "play_again" }
+  | { type: "new_setup" };
 
 export type ServerMessage =
-  | { type: "room_state"; roomCode: string; teams: TeamState[]; turn: TurnState | null }
+  | {
+      type: "room_state";
+      roomCode: string;
+      teams: TeamState[];
+      players: PlayerInfo[];
+      hostId: string;
+      yourId: string;
+      rules: RoomRules;
+      started: boolean;
+      activePlayerId: string | null;
+      turn: TurnState | null;
+      winnerId: string | null;
+    }
   | { type: "error"; message: string };

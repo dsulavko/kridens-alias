@@ -9,9 +9,8 @@ interface SocketContext {
   playerId: string;
 }
 
-export function attachWebSocketServer(httpServer: HttpServer): RoomManager {
+export function attachWebSocketServer(httpServer: HttpServer, roomManager: RoomManager): void {
   const wss = new WebSocketServer({ server: httpServer });
-  const roomManager = new RoomManager();
   const contexts = new WeakMap<WebSocket, SocketContext>();
 
   wss.on("connection", (socket) => {
@@ -34,8 +33,6 @@ export function attachWebSocketServer(httpServer: HttpServer): RoomManager {
       }
     });
   });
-
-  return roomManager;
 }
 
 function handleMessage(
@@ -50,7 +47,7 @@ function handleMessage(
   switch (message.type) {
     case "create_room": {
       const pool = getApprovedWords();
-      const room = roomManager.createRoom(message.teamNames, pool);
+      const room = roomManager.createRoom(ctx.playerId, pool);
       const firstTeam = room.getTeams()[0];
       room.addPlayer({ id: ctx.playerId, name: message.playerName, teamId: firstTeam.id, socket });
       ctx.roomCode = room.code;
@@ -67,14 +64,30 @@ function handleMessage(
       room.broadcast();
       return;
     }
+    case "update_rules":
+      return withRoom(ctx, roomManager, socket, (room) => room.updateRules(message.rules, ctx.playerId));
+    case "assign_player":
+      return withRoom(ctx, roomManager, socket, (room) =>
+        room.assignPlayer(message.playerId, message.teamId, ctx.playerId),
+      );
+    case "shuffle_teams":
+      return withRoom(ctx, roomManager, socket, (room) => room.shuffleTeams(ctx.playerId));
     case "start_turn":
-      return withRoom(ctx, roomManager, socket, (room) => room.startTurn());
+      return withRoom(ctx, roomManager, socket, (room) => room.startTurn(ctx.playerId));
     case "mark_guessed":
-      return withRoom(ctx, roomManager, socket, (room) => room.markGuessed());
+      return withRoom(ctx, roomManager, socket, (room) => room.markGuessed(ctx.playerId));
     case "mark_skipped":
-      return withRoom(ctx, roomManager, socket, (room) => room.markSkipped());
+      return withRoom(ctx, roomManager, socket, (room) => room.markSkipped(ctx.playerId));
     case "end_turn":
       return withRoom(ctx, roomManager, socket, (room) => room.endTurn());
+    case "toggle_word":
+      return withRoom(ctx, roomManager, socket, (room) => room.toggleWordMark(message.wordId, ctx.playerId));
+    case "next_turn":
+      return withRoom(ctx, roomManager, socket, (room) => room.nextTurn(ctx.playerId));
+    case "play_again":
+      return withRoom(ctx, roomManager, socket, (room) => room.playAgain(ctx.playerId));
+    case "new_setup":
+      return withRoom(ctx, roomManager, socket, (room) => room.newSetup(ctx.playerId));
   }
 }
 

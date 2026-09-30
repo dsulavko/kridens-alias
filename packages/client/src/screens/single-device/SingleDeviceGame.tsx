@@ -7,6 +7,7 @@ import {
   isTimeUp,
   markGuessed,
   markSkipped,
+  scaledDeckConfig,
   startTurn,
   type TeamState,
   type TurnState,
@@ -84,11 +85,13 @@ export default function SingleDeviceGame({ onExit }: SingleDeviceGameProps) {
   function handleStartTurn() {
     if (!pool || !config) return;
     let available = pool.filter((w) => !usedWordIds.current.has(w.id));
-    if (available.length < config.deckConfig.count) {
+    const wordsNeeded = config.limitWordsPerTurn ? config.deckConfig.count : 1;
+    if (available.length < wordsNeeded) {
       usedWordIds.current.clear();
       available = pool;
     }
-    const deck = buildDeck(available, config.deckConfig);
+    const deckConfig = config.limitWordsPerTurn ? config.deckConfig : scaledDeckConfig(available.length);
+    const deck = buildDeck(available, deckConfig);
     deck.forEach((w) => usedWordIds.current.add(w.id));
     setTurn(startTurn(activeTeam.id, deck, config.turnDurationMs, Date.now()));
     setStage("playing");
@@ -110,7 +113,7 @@ export default function SingleDeviceGame({ onExit }: SingleDeviceGameProps) {
     const updatedTeams = teams.map((t) => (t.id === activeTeam.id ? { ...t, score: t.score + guessedCount } : t));
     setTeams(updatedTeams);
 
-    const winner = hasWinner(updatedTeams, config.winScore);
+    const winner = config.limitScore ? hasWinner(updatedTeams, config.winScore) : null;
     setTurn(null);
     if (winner) {
       setWinnerId(winner.id);
@@ -179,9 +182,11 @@ export default function SingleDeviceGame({ onExit }: SingleDeviceGameProps) {
 
   return (
     <div className="screen">
-      <button className="exit" onClick={onExit}>
-        ← Назад
-      </button>
+      {turn?.phase !== "in_progress" && (
+        <button className="exit" onClick={onExit}>
+          ← Назад
+        </button>
+      )}
       <h2>Ход: {activeTeam.name}</h2>
       <Scoreboard teams={teams} />
 
