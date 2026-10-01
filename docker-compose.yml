@@ -1,0 +1,33 @@
+services:
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: server
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - PORT=8787
+      - DB_PATH=/app/data/words.db
+    volumes:
+      - words-data:/app/data
+    expose:
+      - "8787"
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: client
+      args:
+        VITE_SERVER_HTTP_URL: ""
+        VITE_SERVER_WS_URL: "/ws"
+    restart: unless-stopped
+    depends_on:
+      - server
+    ports:
+      - "80:80"
+
+volumes:
+  words-data:
