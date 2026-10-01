@@ -36,6 +36,7 @@ export function defaultRoomRules(teamNames: string[] = pickRandomTeamNames(2)): 
     winScore: 20,
     limitScore: false,
     allowSkip: true,
+    showWordToOthers: false,
   };
 }
 

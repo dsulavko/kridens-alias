@@ -44,6 +44,7 @@ export default function RoomLobby({
   const [winScore, setWinScore] = useState(rules.winScore);
   const [limitScore, setLimitScore] = useState(rules.limitScore);
   const [allowSkip, setAllowSkip] = useState(rules.allowSkip);
+  const [showWordToOthers, setShowWordToOthers] = useState(rules.showWordToOthers);
 
   useEffect(() => {
     fetch(`${SERVER_HTTP_URL}/api/words`)
@@ -79,6 +80,7 @@ export default function RoomLobby({
       winScore: Math.max(5, winScore),
       limitScore,
       allowSkip,
+      showWordToOthers,
     });
     onStartGame();
   }
@@ -169,6 +171,8 @@ export default function RoomLobby({
           onWinScoreChange={setWinScore}
           allowSkip={allowSkip}
           onAllowSkipChange={setAllowSkip}
+          showWordToOthers={showWordToOthers}
+          onShowWordToOthersChange={setShowWordToOthers}
         />
       ) : (
         <ReadOnlyRules rules={rules} />
@@ -363,6 +367,8 @@ function HostRules({
   onWinScoreChange,
   allowSkip,
   onAllowSkipChange,
+  showWordToOthers,
+  onShowWordToOthersChange,
 }: {
   turnDurationSec: number;
   onTurnDurationSecChange: (value: number) => void;
@@ -377,6 +383,8 @@ function HostRules({
   onWinScoreChange: (value: number) => void;
   allowSkip: boolean;
   onAllowSkipChange: (value: boolean) => void;
+  showWordToOthers: boolean;
+  onShowWordToOthersChange: (value: boolean) => void;
 }) {
   return (
     <section className="setup-form">
@@ -422,6 +430,14 @@ function HostRules({
         <input type="checkbox" checked={allowSkip} onChange={(e) => onAllowSkipChange(e.target.checked)} />
         Можно пропускать слова
       </label>
+      <label className="checkbox-row">
+        <input
+          type="checkbox"
+          checked={showWordToOthers}
+          onChange={(e) => onShowWordToOthersChange(e.target.checked)}
+        />
+        Показывать задание другим игрокам
+      </label>
     </section>
   );
 }
@@ -434,6 +450,7 @@ function ReadOnlyRules({ rules }: { rules: RoomRules }) {
       <p>Длительность хода: {rules.turnDurationMs / 1000} сек</p>
       <p>Очков до победы: {rules.limitScore ? rules.winScore : "не ограничено"}</p>
       <p>Пропуск слов: {rules.allowSkip ? "разрешён" : "запрещён"}</p>
+      <p>Задание другим игрокам: {rules.showWordToOthers ? "показывается" : "скрыто"}</p>
     </section>
   );
 }

@@ -109,15 +109,17 @@ export class Room {
     this.broadcast();
   }
 
+  /** Host-only. Leaves the lobby and picks the turn order, but doesn't start the first turn — the active player still has to tap "Начать ход". */
+  startGame(requesterId: string) {
+    if (this.started || requesterId !== this.hostId) return;
+    this.turnOrder = buildTurnOrder(this.teams, this.players);
+    if (this.turnOrder.length === 0) return;
+    this.started = true;
+    this.broadcast();
+  }
+
   startTurn(requesterId: string) {
-    if (!this.started) {
-      if (requesterId !== this.hostId) return;
-      this.turnOrder = buildTurnOrder(this.teams, this.players);
-      if (this.turnOrder.length === 0) return;
-      this.started = true;
-    } else if (requesterId !== this.getActivePlayerId()) {
-      return;
-    }
+    if (!this.started || requesterId !== this.getActivePlayerId()) return;
     this.clearTimer();
 
     const entry = this.turnOrder[this.turnOrderIndex];
@@ -246,6 +248,11 @@ export class Room {
       if (player.socket.readyState !== player.socket.OPEN) continue;
       const isGuessingTeammate =
         this.turn?.phase === "in_progress" && player.id !== activePlayerId && player.teamId === activeTeamId;
+      // Teammates never see the word (they'd be guessing it). Everyone else only sees it when the host allows it.
+      const shouldHideWord =
+        this.turn?.phase === "in_progress" &&
+        player.id !== activePlayerId &&
+        (isGuessingTeammate || !this.rules.showWordToOthers);
       const message: ServerMessage = {
         type: "room_state",
         roomCode: this.code,
@@ -256,7 +263,7 @@ export class Room {
         rules: this.rules,
         started: this.started,
         activePlayerId,
-        turn: isGuessingTeammate && this.turn ? { ...this.turn, deck: [] } : this.turn,
+        turn: shouldHideWord && this.turn ? { ...this.turn, deck: [] } : this.turn,
         winnerId: this.winnerId,
       };
       player.socket.send(JSON.stringify(message));

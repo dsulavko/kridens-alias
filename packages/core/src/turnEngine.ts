@@ -43,7 +43,26 @@ function advance(state: TurnState, listKey: "guessedWordIds" | "skippedWordIds")
 }
 
 export function endTurn(state: TurnState): TurnState {
-  return { ...state, phase: "ended" };
+  if (state.phase !== "in_progress") return state;
+
+  // The word on screen when the timer runs out was never explicitly
+  // guessed or skipped. Fold it into the deck as "skipped" (unanswered)
+  // by default, so it shows up in the recap and can be toggled to
+  // "guessed" there, same as any other word.
+  const pending = state.deck[state.currentIndex];
+  const alreadyResolved =
+    pending && (state.guessedWordIds.includes(pending.id) || state.skippedWordIds.includes(pending.id));
+
+  if (!pending || alreadyResolved) {
+    return { ...state, phase: "ended" };
+  }
+
+  return {
+    ...state,
+    phase: "ended",
+    skippedWordIds: [...state.skippedWordIds, pending.id],
+    currentIndex: state.currentIndex + 1,
+  };
 }
 
 export function isTimeUp(state: TurnState, now: number): boolean {

@@ -78,6 +78,8 @@ export interface RoomRules {
   winScore: number;
   limitScore: boolean;
   allowSkip: boolean;
+  /** When false, only the explaining player sees the current word; others just see the timer. */
+  showWordToOthers: boolean;
 }
 
 export interface PlayerInfo {
@@ -92,6 +94,7 @@ export type ClientMessage =
   | { type: "update_rules"; rules: RoomRules }
   | { type: "assign_player"; playerId: string; teamId: string }
   | { type: "shuffle_teams" }
+  | { type: "start_game" }
   | { type: "start_turn" }
   | { type: "mark_guessed" }
   | { type: "mark_skipped" }

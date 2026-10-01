@@ -72,6 +72,8 @@ function handleMessage(
       );
     case "shuffle_teams":
       return withRoom(ctx, roomManager, socket, (room) => room.shuffleTeams(ctx.playerId));
+    case "start_game":
+      return withRoom(ctx, roomManager, socket, (room) => room.startGame(ctx.playerId));
     case "start_turn":
       return withRoom(ctx, roomManager, socket, (room) => room.startTurn(ctx.playerId));
     case "mark_guessed":

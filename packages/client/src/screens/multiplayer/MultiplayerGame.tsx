@@ -184,7 +184,7 @@ export default function MultiplayerGame({ initialJoinCode, onExit }: Multiplayer
         onUpdateRules={(newRules) => send({ type: "update_rules", rules: newRules })}
         onAssignPlayer={(playerId, teamId) => send({ type: "assign_player", playerId, teamId })}
         onShuffleTeams={() => send({ type: "shuffle_teams" })}
-        onStartGame={() => send({ type: "start_turn" })}
+        onStartGame={() => send({ type: "start_game" })}
         onExit={handleExitRoom}
         onCloseRoom={handleCloseRoom}
       />
@@ -227,10 +227,8 @@ export default function MultiplayerGame({ initialJoinCode, onExit }: Multiplayer
     ? Math.max(0, Math.ceil((turn.turnDurationMs - (now - turn.startedAt)) / 1000))
     : null;
 
-  const you = players.find((p) => p.id === yourId);
   const activePlayer = players.find((p) => p.id === activePlayerId);
   const isActive = Boolean(yourId) && yourId === activePlayerId;
-  const isTeammate = !isActive && Boolean(activePlayer && you && activePlayer.teamId === you.teamId);
 
   return (
     <div className="screen">
@@ -291,19 +289,16 @@ export default function MultiplayerGame({ initialJoinCode, onExit }: Multiplayer
         </div>
       )}
 
-      {turn?.phase === "in_progress" && isTeammate && (
+      {turn?.phase === "in_progress" && !isActive && (
         <div className="turn">
           <div className="timer">{secondsLeft}s</div>
-          <p>{activePlayer?.name} объясняет слово</p>
-        </div>
-      )}
-
-      {turn?.phase === "in_progress" && !isActive && !isTeammate && (
-        <div className="turn">
-          <div className="timer">{secondsLeft}s</div>
-          <div className="word" key={turn.currentIndex}>
-            {word?.text}
-          </div>
+          {word ? (
+            <div className="word" key={turn.currentIndex}>
+              {word.text}
+            </div>
+          ) : (
+            <p>{activePlayer?.name} объясняет слово</p>
+          )}
         </div>
       )}
     </div>
