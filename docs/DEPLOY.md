@@ -63,12 +63,31 @@ git pull
 docker compose up -d --build
 ```
 
-## 7. HTTPS (после привязки домена)
+## 7. HTTPS
 
-Пока сервер доступен только по IP, TLS не настроен. Когда появится домен, направленный на сервер:
+TLS настроен через контейнер `certbot/certbot` (webroot-метод) и volume `letsencrypt`, который `web` монтирует read-only в `/etc/letsencrypt`. Нужен домен, указывающий на IP сервера (A-запись), **до** выпуска сертификата.
+
+Первый выпуск сертификата (домен уже должен резолвиться на сервер):
 
 ```bash
-apt install certbot python3-certbot-nginx -y
+cd kridens-alias
+docker compose up -d --build web   # поднимает nginx с открытым /.well-known/acme-challenge/
+docker compose run --rm certbot certonly --webroot -w /var/www/certbot \
+  -d <домен> --email <email> --agree-tos --non-interactive
 ```
 
-Либо проще — поднять certbot как отдельный шаг на хосте (не в контейнере `web`, так как nginx там живёт внутри контейнера): временно открыть порт 80 наружу (уже открыт), получить сертификат через `certbot --nginx` на системный nginx-реверс-прокси перед контейнерами, либо добавить certbot-контейнер с общим volume для сертификатов и webroot. Это отдельный шаг, который имеет смысл делать только когда известен домен.
+После этого `deploy/nginx.conf` уже содержит финальный конфиг (80 → редирект на 443 + сам 443-сервер с `ssl_certificate`/`ssl_certificate_key` на `<домен>`) — если домен другой, поменять `server_name` и пути `ssl_certificate*` в `deploy/nginx.conf`, затем:
+
+```bash
+docker compose up -d --build web
+```
+
+### Автопродление
+
+Сертификат Let's Encrypt живёт 90 дней. `deploy/renew-cert.sh` вызывает `certbot renew` и перезагружает nginx (no-op, если продление не требуется). Настроено через cron на хосте:
+
+```bash
+sudo crontab -e
+# добавить строку:
+17 3 * * 1 /home/deploy/kridens-alias/renew-cert.sh >> /home/deploy/renew-cert.log 2>&1
+```
