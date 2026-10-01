@@ -229,6 +229,8 @@ export default function MultiplayerGame({ initialJoinCode, onExit }: Multiplayer
 
   const activePlayer = players.find((p) => p.id === activePlayerId);
   const isActive = Boolean(yourId) && yourId === activePlayerId;
+  const activeTeam = teams.find((t) => t.id === activePlayer?.teamId);
+  const guessers = players.filter((p) => p.teamId === activePlayer?.teamId && p.id !== activePlayerId);
 
   return (
     <div className="screen">
@@ -299,6 +301,9 @@ export default function MultiplayerGame({ initialJoinCode, onExit }: Multiplayer
           ) : (
             <p>{activePlayer?.name} объясняет слово</p>
           )}
+          <p className="guessers">
+            Команда «{activeTeam?.name}»{guessers.length > 0 ? ` угадывает: ${guessers.map((p) => p.name).join(", ")}` : " угадывает"}
+          </p>
         </div>
       )}
     </div>
