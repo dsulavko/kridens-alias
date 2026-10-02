@@ -1,3 +1,10 @@
+/* Without this, any box with both padding/border and a width or max-width (like .screen)
+   renders wider than intended — padding and border are added on top instead of eating
+   into the declared width, which is exactly what pushed .screen past the viewport edge. */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
 :root {
   --bg-deep: #05060b;
   --panel-bg: rgba(255, 255, 255, 0.05);
