@@ -38,6 +38,14 @@ export interface CollectionInfo {
   createdAt: number;
 }
 
+/** Admin console's view of a host-saved room — see Room.saveRoom() for how these accumulate. */
+export interface SavedRoomInfo {
+  guid: string;
+  createdAt: number;
+  gamesPlayed: number;
+  wordCount: number;
+}
+
 export interface DeckConfig {
   /** How many words make up one turn's deck. */
   count: number;
@@ -93,12 +101,13 @@ export interface PlayerInfo {
 }
 
 export type ClientMessage =
-  | { type: "create_room"; playerName: string }
+  | { type: "create_room"; playerName: string; savedRoomGuid?: string }
   | { type: "join_room"; roomCode: string; playerName: string }
   | { type: "update_rules"; rules: RoomRules }
   | { type: "assign_player"; playerId: string; teamId: string }
   | { type: "shuffle_teams" }
   | { type: "start_game" }
+  | { type: "save_room" }
   | { type: "start_turn" }
   | { type: "mark_guessed" }
   | { type: "mark_skipped" }
@@ -125,6 +134,11 @@ export type ServerMessage =
       activePlayerId: string | null;
       turn: TurnState | null;
       winnerId: string | null;
+      /** Set once the host saves the room — a link built from it recreates a room whose word
+       * pool excludes everything already played under this GUID, across however many separate
+       * live sessions. Null until saved; `save_room` is a one-shot action, so it never changes
+       * back. */
+      savedRoomGuid: string | null;
     }
   | { type: "error"; message: string }
   | { type: "room_closed" };

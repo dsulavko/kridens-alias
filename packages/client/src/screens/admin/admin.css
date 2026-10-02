@@ -204,6 +204,11 @@ body.admin-mode #root {
   text-overflow: ellipsis;
 }
 
+.admin-table td.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85em;
+}
+
 .admin-table th.sortable {
   cursor: pointer;
   user-select: none;

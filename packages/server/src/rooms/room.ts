@@ -14,6 +14,22 @@ import {
   type TurnState,
   type Word,
 } from "@kridens/core";
+import {
+  addSavedRoomUsedWordIds,
+  clearSavedRoomUsedWordIds,
+  createSavedRoom,
+  incrementSavedRoomGamesPlayed,
+  updateSavedRoomRules,
+} from "../db/savedRoomsRepo.js";
+
+export interface RoomOptions {
+  /** Set when this room is being recreated from a saved-room link. */
+  savedRoomGuid?: string | null;
+  /** The saved room's rules snapshot, applied instead of `defaultRoomRules()`. */
+  initialRules?: RoomRules;
+  /** Every word already played under that GUID in a previous live session, excluded from this one's deck until exhausted. */
+  initialUsedWordIds?: Set<number>;
+}
 
 interface Player {
   id: string;
@@ -33,19 +49,22 @@ export class Room {
   private rules: RoomRules;
   private teams: TeamState[];
   private players: Player[] = [];
-  private usedWordIds = new Set<number>();
+  private usedWordIds: Set<number>;
   private turn: TurnState | null = null;
   private turnOrder: Array<{ playerId: string; teamId: string }> = [];
   private turnOrderIndex = 0;
   private turnTimeout: NodeJS.Timeout | null = null;
   private started = false;
   private winnerId: string | null = null;
+  private savedRoomGuid: string | null;
 
-  constructor(code: string, hostId: string, private wordPool: Word[]) {
+  constructor(code: string, hostId: string, private wordPool: Word[], options: RoomOptions = {}) {
     this.code = code;
     this.hostId = hostId;
-    this.rules = defaultRoomRules();
+    this.rules = options.initialRules ?? defaultRoomRules();
     this.teams = buildTeams(this.rules.teamNames);
+    this.savedRoomGuid = options.savedRoomGuid ?? null;
+    this.usedWordIds = new Set(options.initialUsedWordIds ?? []);
   }
 
   addPlayer(player: Player) {
@@ -77,6 +96,10 @@ export class Room {
   updateRules(rules: RoomRules, requesterId: string) {
     if (requesterId !== this.hostId || this.started) return;
     this.rules = rules;
+    // Keep the saved snapshot in sync with further edits in the same lobby, so whatever the
+    // host actually starts the game with is what a later "reopen" link restores — not just
+    // whatever happened to be set at the moment they clicked "save".
+    if (this.savedRoomGuid) updateSavedRoomRules(this.savedRoomGuid, rules);
     this.teams = buildTeams(rules.teamNames);
     const validTeamIds = new Set(this.teams.map((t) => t.id));
     for (const player of this.players) {
@@ -109,12 +132,26 @@ export class Room {
     this.broadcast();
   }
 
+  /**
+   * Host-only, lobby-only, one-shot: snapshots the current rules under a fresh GUID and starts
+   * persisting word usage against it, so a room later created from the resulting link restores
+   * these rules and never repeats a word this one already played. Once set, the GUID never
+   * changes — there's no way to re-save under a different one.
+   */
+  saveRoom(requesterId: string) {
+    if (requesterId !== this.hostId || this.started || this.savedRoomGuid) return;
+    this.savedRoomGuid = crypto.randomUUID();
+    createSavedRoom(this.savedRoomGuid, this.rules);
+    this.broadcast();
+  }
+
   /** Host-only. Leaves the lobby and picks the turn order, but doesn't start the first turn — the active player still has to tap "Начать ход". */
   startGame(requesterId: string) {
     if (this.started || requesterId !== this.hostId) return;
     this.turnOrder = buildTurnOrder(this.teams, this.players);
     if (this.turnOrder.length === 0) return;
     this.started = true;
+    if (this.savedRoomGuid) incrementSavedRoomGamesPlayed(this.savedRoomGuid);
     this.broadcast();
   }
 
@@ -129,11 +166,13 @@ export class Room {
     let available = this.wordPool.filter((w) => !this.usedWordIds.has(w.id));
     if (available.length < wordsNeeded) {
       this.usedWordIds.clear();
+      if (this.savedRoomGuid) clearSavedRoomUsedWordIds(this.savedRoomGuid);
       available = this.wordPool;
     }
     const deckConfig = this.rules.limitWordsPerTurn ? this.rules.deckConfig : scaledDeckConfig(available.length);
     const deck = buildDeck(available, deckConfig);
     for (const word of deck) this.usedWordIds.add(word.id);
+    if (this.savedRoomGuid) addSavedRoomUsedWordIds(this.savedRoomGuid, deck.map((w) => w.id));
 
     this.turn = coreStartTurn(team.id, deck, this.rules.turnDurationMs, Date.now());
     // Server owns the clock — clients only render it, so the turn ends here even if no one taps a button.
@@ -235,7 +274,10 @@ export class Room {
   playAgain(requesterId: string) {
     if (requesterId !== this.hostId) return;
     this.teams = this.teams.map((t) => ({ ...t, score: 0 }));
-    this.usedWordIds.clear();
+    // A saved room's word history spans every replay, not just the live session that started
+    // it — only true exhaustion (handled in startTurn) clears it.
+    if (!this.savedRoomGuid) this.usedWordIds.clear();
+    else incrementSavedRoomGamesPlayed(this.savedRoomGuid);
     this.turnOrderIndex = 0;
     this.turn = null;
     this.winnerId = null;
@@ -252,7 +294,7 @@ export class Room {
     this.winnerId = null;
     this.turnOrder = [];
     this.turnOrderIndex = 0;
-    this.usedWordIds.clear();
+    if (!this.savedRoomGuid) this.usedWordIds.clear();
     this.clearTimer();
     this.broadcast();
   }
@@ -292,6 +334,7 @@ export class Room {
         activePlayerId,
         turn: shouldHideWord && this.turn ? { ...this.turn, deck: [] } : this.turn,
         winnerId: this.winnerId,
+        savedRoomGuid: this.savedRoomGuid,
       };
       player.socket.send(JSON.stringify(message));
     }

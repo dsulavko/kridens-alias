@@ -14,6 +14,7 @@ interface RoomConnectionState {
   activePlayerId: string | null;
   turn: TurnState | null;
   winnerId: string | null;
+  savedRoomGuid: string | null;
   error: string | null;
   roomClosed: boolean;
 }
@@ -33,6 +34,7 @@ export function useRoomConnection() {
     activePlayerId: null,
     turn: null,
     winnerId: null,
+    savedRoomGuid: null,
     error: null,
     roomClosed: false,
   });
@@ -58,6 +60,7 @@ export function useRoomConnection() {
           activePlayerId: message.activePlayerId,
           turn: message.turn,
           winnerId: message.winnerId,
+          savedRoomGuid: message.savedRoomGuid,
           error: null,
         }));
       } else if (message.type === "error") {

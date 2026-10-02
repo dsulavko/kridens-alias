@@ -12,6 +12,7 @@ import {
   listCollections,
   removeWordsFromCollection,
 } from "./db/collectionsRepo.js";
+import { deleteSavedRoom, listSavedRoomsForAdmin } from "./db/savedRoomsRepo.js";
 import {
   deleteWord,
   deleteWordsBulk,
@@ -415,6 +416,30 @@ export function handleHttpRequest(req: IncomingMessage, res: ServerResponse, roo
     const weight = isValidWeight(weightParam) ? weightParam : null;
     res.setHeader("Content-Type", "application/json");
     res.end(JSON.stringify(getCandidateWords(Number(candidateWordsMatch[1]), query, category, weight)));
+    return true;
+  }
+
+  if (url.pathname === "/api/admin/saved-rooms" && req.method === "GET") {
+    if (!isAuthorized(req)) {
+      res.statusCode = 401;
+      res.end();
+      return true;
+    }
+    res.setHeader("Content-Type", "application/json");
+    res.end(JSON.stringify(listSavedRoomsForAdmin()));
+    return true;
+  }
+
+  const savedRoomGuidMatch = url.pathname.match(/^\/api\/admin\/saved-rooms\/([0-9a-fA-F-]+)$/);
+  if (savedRoomGuidMatch && req.method === "DELETE") {
+    if (!isAuthorized(req)) {
+      res.statusCode = 401;
+      res.end();
+      return true;
+    }
+    deleteSavedRoom(savedRoomGuidMatch[1]);
+    res.statusCode = 204;
+    res.end();
     return true;
   }
 

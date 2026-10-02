@@ -1,5 +1,5 @@
 import type { Word } from "@kridens/core";
-import { Room } from "./room.js";
+import { Room, type RoomOptions } from "./room.js";
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no O/0/I/1 to avoid confusion
 
@@ -14,11 +14,11 @@ function generateRoomCode(): string {
 export class RoomManager {
   private rooms = new Map<string, Room>();
 
-  createRoom(hostId: string, wordPool: Word[]): Room {
+  createRoom(hostId: string, wordPool: Word[], options?: RoomOptions): Room {
     let code = generateRoomCode();
     while (this.rooms.has(code)) code = generateRoomCode();
 
-    const room = new Room(code, hostId, wordPool);
+    const room = new Room(code, hostId, wordPool, options);
     this.rooms.set(code, room);
     return room;
   }

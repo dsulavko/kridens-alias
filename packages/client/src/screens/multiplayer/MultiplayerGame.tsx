@@ -8,13 +8,14 @@ import RoomLobby from "./RoomLobby";
 
 interface MultiplayerGameProps {
   initialJoinCode?: string | null;
+  initialSavedRoomGuid?: string | null;
   onExit: () => void;
 }
 
 type LobbyMode = "choice" | "create" | "join";
 
 /** Server owns the deck and the turn clock — this component only renders what it broadcasts. */
-export default function MultiplayerGame({ initialJoinCode, onExit }: MultiplayerGameProps) {
+export default function MultiplayerGame({ initialJoinCode, initialSavedRoomGuid, onExit }: MultiplayerGameProps) {
   const {
     status,
     roomCode,
@@ -27,11 +28,12 @@ export default function MultiplayerGame({ initialJoinCode, onExit }: Multiplayer
     activePlayerId,
     turn,
     winnerId,
+    savedRoomGuid,
     error,
     roomClosed,
     send,
   } = useRoomConnection();
-  const viaLink = Boolean(initialJoinCode);
+  const viaLink = Boolean(initialJoinCode) || Boolean(initialSavedRoomGuid);
 
   function handleExitRoom() {
     send({ type: "leave_room" });
@@ -42,7 +44,9 @@ export default function MultiplayerGame({ initialJoinCode, onExit }: Multiplayer
     send({ type: "close_room" });
     onExit();
   }
-  const [lobbyMode, setLobbyMode] = useState<LobbyMode>(initialJoinCode ? "join" : "choice");
+  const [lobbyMode, setLobbyMode] = useState<LobbyMode>(
+    initialJoinCode ? "join" : initialSavedRoomGuid ? "create" : "choice",
+  );
   const [playerName, setPlayerName] = useState("");
   const [joinCode, setJoinCode] = useState(initialJoinCode ?? "");
   const [joinRoomFound, setJoinRoomFound] = useState(false);
@@ -134,7 +138,13 @@ export default function MultiplayerGame({ initialJoinCode, onExit }: Multiplayer
             <button
               className="primary"
               disabled={status !== "open" || !playerName.trim()}
-              onClick={() => send({ type: "create_room", playerName })}
+              onClick={() =>
+                send(
+                  initialSavedRoomGuid
+                    ? { type: "create_room", playerName, savedRoomGuid: initialSavedRoomGuid }
+                    : { type: "create_room", playerName },
+                )
+              }
             >
               Продолжить
             </button>
@@ -185,10 +195,12 @@ export default function MultiplayerGame({ initialJoinCode, onExit }: Multiplayer
         rules={rules}
         hostId={hostId ?? ""}
         isHost={yourId === hostId}
+        savedRoomGuid={savedRoomGuid}
         onUpdateRules={(newRules) => send({ type: "update_rules", rules: newRules })}
         onAssignPlayer={(playerId, teamId) => send({ type: "assign_player", playerId, teamId })}
         onShuffleTeams={() => send({ type: "shuffle_teams" })}
         onStartGame={() => send({ type: "start_game" })}
+        onSaveRoom={() => send({ type: "save_room" })}
         onExit={handleExitRoom}
         onCloseRoom={handleCloseRoom}
       />

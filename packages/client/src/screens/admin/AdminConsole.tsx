@@ -4,6 +4,7 @@ import AdminSidebar, { type AdminView } from "./AdminSidebar";
 import AdminWordsList from "./AdminWordsList";
 import AdminCategoriesList from "./AdminCategoriesList";
 import AdminCollectionsList from "./AdminCollectionsList";
+import AdminRoomsList from "./AdminRoomsList";
 import "./admin.css";
 
 const TOKEN_STORAGE_KEY = "kridens_admin_token";
@@ -43,6 +44,7 @@ export default function AdminConsole() {
           {view === "words" && <AdminWordsList token={token} onLogout={handleLogout} />}
           {view === "categories" && <AdminCategoriesList token={token} onLogout={handleLogout} />}
           {view === "collections" && <AdminCollectionsList token={token} onLogout={handleLogout} />}
+          {view === "rooms" && <AdminRoomsList token={token} onLogout={handleLogout} />}
         </div>
       </div>
     </div>

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { pickRandomTeamNames, scaledDeckConfig, type PlayerInfo, type RoomRules, type TeamState } from "@kridens/core";
 import { SERVER_HTTP_URL, TURN_DURATION_OPTIONS_SEC } from "../../config";
 import Modal from "../../components/Modal";
-import ShareRoomLink from "./ShareRoomLink";
+import CopyLinkButton from "../../components/CopyLinkButton";
 
 const MAX_TEAMS = 10;
 const PLAYER_DRAG_TYPE = "application/x-player-id";
@@ -15,10 +15,12 @@ interface RoomLobbyProps {
   rules: RoomRules;
   hostId: string;
   isHost: boolean;
+  savedRoomGuid: string | null;
   onUpdateRules: (rules: RoomRules) => void;
   onAssignPlayer: (playerId: string, teamId: string) => void;
   onShuffleTeams: () => void;
   onStartGame: () => void;
+  onSaveRoom: () => void;
   onExit: () => void;
   onCloseRoom: () => void;
 }
@@ -30,10 +32,12 @@ export default function RoomLobby({
   rules,
   hostId,
   isHost,
+  savedRoomGuid,
   onUpdateRules,
   onAssignPlayer,
   onShuffleTeams,
   onStartGame,
+  onSaveRoom,
   onExit,
   onCloseRoom,
 }: RoomLobbyProps) {
@@ -88,15 +92,28 @@ export default function RoomLobby({
 
   return (
     <div className="screen">
-      {isHost ? (
-        <button className="exit" onClick={() => setConfirmingClose(true)}>
-          Закрыть комнату
-        </button>
-      ) : (
-        <button className="exit" onClick={onExit}>
-          Выйти
-        </button>
-      )}
+      <div className="room-header-row">
+        {isHost ? (
+          <button className="exit" onClick={() => setConfirmingClose(true)}>
+            Закрыть комнату
+          </button>
+        ) : (
+          <button className="exit" onClick={onExit}>
+            Выйти
+          </button>
+        )}
+        {isHost &&
+          (savedRoomGuid ? (
+            <CopyLinkButton
+              url={`${window.location.origin}${window.location.pathname}?saved=${savedRoomGuid}`}
+              label="💾 Скопировать ссылку"
+            />
+          ) : (
+            <button type="button" className="ghost-btn" onClick={onSaveRoom}>
+              💾 Сохранить комнату
+            </button>
+          ))}
+      </div>
       {confirmingClose && (
         <Modal>
           <p>Вы уверены что хотите закрыть комнату? Все несохранённые данные будут потеряны.</p>
@@ -110,7 +127,7 @@ export default function RoomLobby({
       )}
       <div className="room-header-row">
         <h2>Комната {roomCode}</h2>
-        <ShareRoomLink roomCode={roomCode} />
+        <CopyLinkButton url={`${window.location.origin}${window.location.pathname}?room=${roomCode}`} label="🔗 Поделиться" />
       </div>
 
       <section>

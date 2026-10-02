@@ -1,4 +1,4 @@
-export type AdminView = "words" | "categories" | "collections";
+export type AdminView = "words" | "categories" | "collections" | "rooms";
 
 interface AdminSidebarProps {
   view: AdminView;
@@ -10,6 +10,7 @@ const NAV_ITEMS: { key: AdminView; label: string }[] = [
   { key: "words", label: "Слова" },
   { key: "categories", label: "Категории" },
   { key: "collections", label: "Коллекции" },
+  { key: "rooms", label: "Комнаты" },
 ];
 
 export default function AdminSidebar({ view, onChangeView, onLogout }: AdminSidebarProps) {
