@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { pickRandomTeamNames, scaledDeckConfig, type DeckConfig } from "@kridens/core";
+import { TURN_DURATION_OPTIONS_SEC } from "../../config";
 
 const MAX_TEAMS = 10;
 
@@ -112,13 +113,13 @@ export default function GameSetup({ maxDeckSize, initialConfig, onStart, onExit 
         <h3>Правила</h3>
         <label>
           Длительность хода, сек
-          <input
-            type="number"
-            min={15}
-            max={180}
-            value={turnDurationSec}
-            onChange={(e) => setTurnDurationSec(Number(e.target.value))}
-          />
+          <select value={turnDurationSec} onChange={(e) => setTurnDurationSec(Number(e.target.value))}>
+            {TURN_DURATION_OPTIONS_SEC.map((sec) => (
+              <option key={sec} value={sec}>
+                {sec}
+              </option>
+            ))}
+          </select>
         </label>
         <label className="checkbox-row inline-field-row">
           <input

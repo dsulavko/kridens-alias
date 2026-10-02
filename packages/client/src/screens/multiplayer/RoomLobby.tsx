@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { pickRandomTeamNames, scaledDeckConfig, type PlayerInfo, type RoomRules, type TeamState } from "@kridens/core";
-import { SERVER_HTTP_URL } from "../../config";
+import { SERVER_HTTP_URL, TURN_DURATION_OPTIONS_SEC } from "../../config";
 import Modal from "../../components/Modal";
 import ShareRoomLink from "./ShareRoomLink";
 
@@ -400,13 +400,13 @@ function HostRules({
       <h3>Правила</h3>
       <label>
         Длительность хода, сек
-        <input
-          type="number"
-          min={15}
-          max={180}
-          value={turnDurationSec}
-          onChange={(e) => onTurnDurationSecChange(Number(e.target.value))}
-        />
+        <select value={turnDurationSec} onChange={(e) => onTurnDurationSecChange(Number(e.target.value))}>
+          {TURN_DURATION_OPTIONS_SEC.map((sec) => (
+            <option key={sec} value={sec}>
+              {sec}
+            </option>
+          ))}
+        </select>
       </label>
       <label className="checkbox-row inline-field-row">
         <input
