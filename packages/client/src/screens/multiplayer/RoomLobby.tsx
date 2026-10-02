@@ -332,22 +332,32 @@ function TeamDropZone({
         {players.length === 0 && <li className="muted">Пока никого</li>}
       </ul>
       {isHost && addablePlayers.length > 0 && (
-        <select
-          className="add-player-select"
-          value=""
-          onChange={(e) => {
-            if (e.target.value) onAssignPlayer(e.target.value, team.id);
-          }}
-        >
-          <option value="" disabled>
-            + Добавить игрока
-          </option>
-          {addablePlayers.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
+        <div className="add-player-control">
+          <select
+            className="add-player-select"
+            aria-label="Добавить игрока в команду"
+            value=""
+            onChange={(e) => {
+              if (e.target.value) onAssignPlayer(e.target.value, team.id);
+            }}
+          >
+            <option value="" disabled>
+              Добавить игрока
             </option>
-          ))}
-        </select>
+            {addablePlayers.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+          <span className="add-player-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="9" cy="7" r="4" />
+              <path d="M2 21v-2a6 6 0 0 1 10-4.47" />
+              <path d="M17 11v6M14 14h6" />
+            </svg>
+          </span>
+        </div>
       )}
     </div>
   );

@@ -29,15 +29,25 @@ body {
   margin: 0;
   min-height: 100vh;
   background-color: var(--bg-deep);
+  position: relative;
+}
+
+/* A true fixed-position layer instead of `background-attachment: fixed` — iOS Safari
+   miscalculates that property against its dynamic toolbar and renders the image zoomed
+   into a crop of itself instead of the full composition. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
   background-image: linear-gradient(180deg, rgba(5, 6, 11, 0.55), rgba(5, 6, 11, 0.78)), url("./assets/bg-landscape.jpg");
-  background-size: cover, cover;
-  background-position: center, center;
-  background-repeat: no-repeat, no-repeat;
-  background-attachment: fixed, fixed;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 @media (orientation: portrait) {
-  body {
+  body::before {
     background-image: linear-gradient(180deg, rgba(5, 6, 11, 0.55), rgba(5, 6, 11, 0.78)), url("./assets/bg-portrait.jpg");
   }
 }
