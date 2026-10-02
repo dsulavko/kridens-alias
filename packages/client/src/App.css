@@ -42,9 +42,10 @@
 }
 
 .host-menu-dropdown {
-  position: absolute;
-  top: calc(100% + 0.4rem);
-  right: 0;
+  /* `position`/`top`/`left`/`bottom` are set inline by HostMenu.tsx — it's portaled to
+     <body> and positioned off the trigger button's live viewport coordinates, since
+     rendering it in place would get clipped by `.screen`'s `overflow: hidden`. */
+  z-index: 60;
   list-style: none;
   margin: 0;
   padding: 0.4rem;
