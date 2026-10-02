@@ -171,8 +171,9 @@ export class Room {
     }
     const deckConfig = this.rules.limitWordsPerTurn ? this.rules.deckConfig : scaledDeckConfig(available.length);
     const deck = buildDeck(available, deckConfig);
-    for (const word of deck) this.usedWordIds.add(word.id);
-    if (this.savedRoomGuid) addSavedRoomUsedWordIds(this.savedRoomGuid, deck.map((w) => w.id));
+    // Not marked used here — with "Максимум слов в ходе" off, the deck is sized to the whole
+    // available pool as a buffer, but only a handful of words actually get shown before time
+    // runs out. Recorded instead once the turn ends, from whichever words were actually shown.
 
     this.turn = coreStartTurn(team.id, deck, this.rules.turnDurationMs, Date.now());
     // Server owns the clock — clients only render it, so the turn ends here even if no one taps a button.
@@ -187,14 +188,20 @@ export class Room {
     const team = this.teams.find((t) => t.id === this.turn!.teamId);
     if (team) team.score += 1;
     this.turn = coreMarkGuessed(this.turn);
-    if (this.turn.phase === "ended") this.clearTimer();
+    if (this.turn.phase === "ended") {
+      this.clearTimer();
+      this.recordPlayedWords(this.turn);
+    }
     this.broadcast();
   }
 
   markSkipped(requesterId: string) {
     if (!this.turn || this.turn.paused || !this.rules.allowSkip || requesterId !== this.getActivePlayerId()) return;
     this.turn = coreMarkSkipped(this.turn);
-    if (this.turn.phase === "ended") this.clearTimer();
+    if (this.turn.phase === "ended") {
+      this.clearTimer();
+      this.recordPlayedWords(this.turn);
+    }
     this.broadcast();
   }
 
@@ -229,7 +236,19 @@ export class Room {
     if (!this.turn) return;
     this.turn = coreEndTurn(this.turn);
     this.clearTimer();
+    this.recordPlayedWords(this.turn);
     this.broadcast();
+  }
+
+  /** Marks every word actually shown this turn (guessed or skipped — including the one left
+   * pending when time ran out, which `coreEndTurn` folds into `skippedWordIds`) as used, both
+   * for this live session's deck exclusion and, if saved, the persisted cross-session history.
+   * Idempotent, so it's safe to call from more than one phase-ended path. */
+  private recordPlayedWords(turn: TurnState) {
+    if (turn.phase !== "ended") return;
+    const playedIds = [...turn.guessedWordIds, ...turn.skippedWordIds];
+    for (const id of playedIds) this.usedWordIds.add(id);
+    if (this.savedRoomGuid) addSavedRoomUsedWordIds(this.savedRoomGuid, playedIds);
   }
 
   /** Only the player who just explained can flip a shown word's mark while reviewing the recap. */
