@@ -483,9 +483,12 @@ li.muted {
   position: fixed;
   inset: 0;
   background: rgba(5, 6, 11, 0.7);
-  /* `.screen`'s backdrop-filter makes it the containing block for this fixed-position
-     overlay, so it fills `.screen`'s box exactly — round it to match, or square corners
-     poke out past `.screen`'s rounded ones. */
+  /* The admin console renders this directly (no `.screen` ancestor there), so `inset: 0`
+     already spans the real viewport and this border-radius just rounds the viewport's own
+     corners — harmless. Game-screen modals go through <Modal> instead, which portals to
+     <body> and resets this to 0: rendered in place inside `.screen`, its backdrop-filter
+     would make it the containing block, and `.screen`'s `overflow: hidden` would then clip
+     the modal whenever it's taller than whatever sub-screen happens to be showing. */
   border-radius: var(--radius-card);
   display: flex;
   align-items: center;

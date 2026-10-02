@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { pickRandomTeamNames, scaledDeckConfig, type PlayerInfo, type RoomRules, type TeamState } from "@kridens/core";
 import { SERVER_HTTP_URL } from "../../config";
+import Modal from "../../components/Modal";
 import ShareRoomLink from "./ShareRoomLink";
 
 const MAX_TEAMS = 10;
@@ -97,17 +98,15 @@ export default function RoomLobby({
         </button>
       )}
       {confirmingClose && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <p>Вы уверены что хотите закрыть комнату? Все несохранённые данные будут потеряны.</p>
-            <div className="actions">
-              <button onClick={() => setConfirmingClose(false)}>Отмена</button>
-              <button className="danger" onClick={onCloseRoom}>
-                Закрыть комнату
-              </button>
-            </div>
+        <Modal>
+          <p>Вы уверены что хотите закрыть комнату? Все несохранённые данные будут потеряны.</p>
+          <div className="actions">
+            <button onClick={() => setConfirmingClose(false)}>Отмена</button>
+            <button className="danger" onClick={onCloseRoom}>
+              Закрыть комнату
+            </button>
           </div>
-        </div>
+        </Modal>
       )}
       <div className="room-header-row">
         <h2>Комната {roomCode}</h2>

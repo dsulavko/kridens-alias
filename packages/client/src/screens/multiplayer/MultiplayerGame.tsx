@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useState } from "react";
 import { currentWord } from "@kridens/core";
 import { SERVER_HTTP_URL } from "../../config";
 import { useRoomConnection } from "../../ws/useRoomConnection";
+import Modal from "../../components/Modal";
 import HostMenu from "./HostMenu";
 import RoomLobby from "./RoomLobby";
 
@@ -87,14 +88,12 @@ export default function MultiplayerGame({ initialJoinCode, onExit }: Multiplayer
   if (roomClosed) {
     return (
       <div className="screen">
-        <div className="modal-overlay">
-          <div className="modal">
-            <p>Эта комната была закрыта её владельцем. Сейчас вы будете перенаправлены на главную страницу.</p>
-            <button className="primary" onClick={onExit}>
-              Принять
-            </button>
-          </div>
-        </div>
+        <Modal>
+          <p>Эта комната была закрыта её владельцем. Сейчас вы будете перенаправлены на главную страницу.</p>
+          <button className="primary" onClick={onExit}>
+            Принять
+          </button>
+        </Modal>
       </div>
     );
   }

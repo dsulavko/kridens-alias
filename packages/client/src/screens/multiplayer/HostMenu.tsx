@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
+import Modal from "../../components/Modal";
 
 interface HostMenuProps {
   onEndGame: () => void;
@@ -136,38 +137,32 @@ export default function HostMenu({
           document.body,
         )}
       {confirmingEnd && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <p>Вы уверены что хотите закончить игру? Комната будет закрыта для всех игроков.</p>
-            <div className="actions">
-              <button onClick={() => setConfirmingEnd(false)}>Отмена</button>
-              <button className="danger" onClick={onEndGame}>
-                Закончить игру
-              </button>
-            </div>
+        <Modal>
+          <p>Вы уверены что хотите закончить игру? Комната будет закрыта для всех игроков.</p>
+          <div className="actions">
+            <button onClick={() => setConfirmingEnd(false)}>Отмена</button>
+            <button className="danger" onClick={onEndGame}>
+              Закончить игру
+            </button>
           </div>
-        </div>
+        </Modal>
       )}
       {confirmingChangeRules && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <p>
-              Вы уверены что хотите изменить правила? Все игроки вернутся в лобби, текущий счёт будет сброшен.
-            </p>
-            <div className="actions">
-              <button onClick={() => setConfirmingChangeRules(false)}>Отмена</button>
-              <button
-                className="primary"
-                onClick={() => {
-                  setConfirmingChangeRules(false);
-                  onChangeRules();
-                }}
-              >
-                Изменить правила
-              </button>
-            </div>
+        <Modal>
+          <p>Вы уверены что хотите изменить правила? Все игроки вернутся в лобби, текущий счёт будет сброшен.</p>
+          <div className="actions">
+            <button onClick={() => setConfirmingChangeRules(false)}>Отмена</button>
+            <button
+              className="primary"
+              onClick={() => {
+                setConfirmingChangeRules(false);
+                onChangeRules();
+              }}
+            >
+              Изменить правила
+            </button>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );
