@@ -10,6 +10,9 @@
   background: var(--panel-bg);
   border: 1px solid var(--panel-border);
   border-radius: var(--radius-card);
+  /* Safari doesn't always clip a backdrop-filter layer to the element's own border-radius —
+     without this it can bleed past the rounded corner on one edge. */
+  overflow: hidden;
   backdrop-filter: blur(20px);
   box-shadow: 0 20px 60px -20px rgba(0, 0, 0, 0.6);
 }
