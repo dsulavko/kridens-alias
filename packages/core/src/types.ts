@@ -66,6 +66,10 @@ export interface TurnState {
   /** Unix ms timestamp when the turn started, for timer sync. */
   startedAt: number | null;
   turnDurationMs: number;
+  /** Host-only: freezes the clock and blocks guess/skip actions until resumed. */
+  paused: boolean;
+  /** Unix ms timestamp when the pause began, so the server can shift startedAt forward on resume. */
+  pausedAt: number | null;
 }
 
 // --- Client <-> Server protocol -------------------------------------------
@@ -99,6 +103,8 @@ export type ClientMessage =
   | { type: "mark_guessed" }
   | { type: "mark_skipped" }
   | { type: "end_turn" }
+  | { type: "pause_turn" }
+  | { type: "resume_turn" }
   | { type: "toggle_word"; wordId: number }
   | { type: "next_turn" }
   | { type: "play_again" }

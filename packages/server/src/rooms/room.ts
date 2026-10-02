@@ -144,7 +144,7 @@ export class Room {
   }
 
   markGuessed(requesterId: string) {
-    if (!this.turn || requesterId !== this.getActivePlayerId()) return;
+    if (!this.turn || this.turn.paused || requesterId !== this.getActivePlayerId()) return;
     const team = this.teams.find((t) => t.id === this.turn!.teamId);
     if (team) team.score += 1;
     this.turn = coreMarkGuessed(this.turn);
@@ -153,9 +153,36 @@ export class Room {
   }
 
   markSkipped(requesterId: string) {
-    if (!this.turn || !this.rules.allowSkip || requesterId !== this.getActivePlayerId()) return;
+    if (!this.turn || this.turn.paused || !this.rules.allowSkip || requesterId !== this.getActivePlayerId()) return;
     this.turn = coreMarkSkipped(this.turn);
     if (this.turn.phase === "ended") this.clearTimer();
+    this.broadcast();
+  }
+
+  /** Host-only: freezes the countdown and blocks guess/skip until resumed. */
+  pauseTurn(requesterId: string) {
+    if (!this.turn || this.turn.phase !== "in_progress" || this.turn.paused) return;
+    if (requesterId !== this.hostId) return;
+    this.clearTimer();
+    this.turn = { ...this.turn, paused: true, pausedAt: Date.now() };
+    this.broadcast();
+  }
+
+  /** Host-only: shifts startedAt forward by the paused duration so the remaining time is preserved. */
+  resumeTurn(requesterId: string) {
+    if (!this.turn || this.turn.phase !== "in_progress" || !this.turn.paused) return;
+    if (requesterId !== this.hostId) return;
+    const pausedDurationMs = Date.now() - (this.turn.pausedAt ?? Date.now());
+    const startedAt = (this.turn.startedAt ?? Date.now()) + pausedDurationMs;
+    this.turn = { ...this.turn, paused: false, pausedAt: null, startedAt };
+
+    const remainingMs = this.turn.turnDurationMs - (Date.now() - startedAt);
+    this.turnTimeout = setTimeout(
+      () => {
+        if (this.turn?.phase === "in_progress") this.endTurn();
+      },
+      Math.max(0, remainingMs),
+    );
     this.broadcast();
   }
 

@@ -14,6 +14,59 @@
   box-shadow: 0 20px 60px -20px rgba(0, 0, 0, 0.6);
 }
 
+.game-header-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.game-header-row .scoreboard {
+  flex: 1;
+}
+
+.host-menu {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.host-menu-trigger {
+  width: 2.3rem;
+  height: 2.3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+}
+
+.host-menu-dropdown {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  right: 0;
+  list-style: none;
+  margin: 0;
+  padding: 0.4rem;
+  min-width: 190px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  background: var(--panel-bg-opaque);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-card);
+  box-shadow: 0 20px 40px -16px rgba(0, 0, 0, 0.6);
+  text-align: left;
+}
+
+.host-menu-dropdown button {
+  width: 100%;
+  border: none;
+  padding: 0.55rem 0.7rem;
+  border-radius: var(--radius-pill);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-align: left;
+}
+
 .exit {
   align-self: flex-start;
   border-radius: var(--radius-pill);
@@ -221,6 +274,7 @@ section {
 .room-header-row h2 {
   margin: 0;
   flex: 1;
+  text-align: left;
 }
 
 .section-header-row {
@@ -387,6 +441,10 @@ li.muted {
   position: fixed;
   inset: 0;
   background: rgba(5, 6, 11, 0.7);
+  /* `.screen`'s backdrop-filter makes it the containing block for this fixed-position
+     overlay, so it fills `.screen`'s box exactly — round it to match, or square corners
+     poke out past `.screen`'s rounded ones. */
+  border-radius: var(--radius-card);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -402,10 +460,9 @@ li.muted {
   flex-direction: column;
   gap: 1.25rem;
   text-align: center;
-  background: var(--panel-bg-strong);
+  background: var(--panel-bg-opaque);
   border: 1px solid var(--panel-border);
   border-radius: var(--radius-card);
-  backdrop-filter: blur(20px);
   box-shadow: 0 20px 60px -20px rgba(0, 0, 0, 0.6);
 }
 

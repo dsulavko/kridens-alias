@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { currentWord } from "@kridens/core";
 import { SERVER_HTTP_URL } from "../../config";
 import { useRoomConnection } from "../../ws/useRoomConnection";
+import HostMenu from "./HostMenu";
 import RoomLobby from "./RoomLobby";
 
 interface MultiplayerGameProps {
@@ -47,11 +48,15 @@ export default function MultiplayerGame({ initialJoinCode, onExit }: Multiplayer
   const [joinLookupError, setJoinLookupError] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
 
-  useEffect(() => {
-    if (turn?.phase !== "in_progress") return;
+  useLayoutEffect(() => {
+    if (turn?.phase !== "in_progress" || turn.paused) return;
+    // Resync immediately (don't wait for the first interval tick) — otherwise a stale `now`
+    // paired with the server's freshly-shifted `startedAt` briefly renders the wrong countdown
+    // right after resuming from a pause.
+    setNow(Date.now());
     const interval = setInterval(() => setNow(Date.now()), 250);
     return () => clearInterval(interval);
-  }, [turn?.phase]);
+  }, [turn?.phase, turn?.paused]);
 
   useEffect(() => {
     if (joinCode.length !== 4) {
@@ -231,16 +236,29 @@ export default function MultiplayerGame({ initialJoinCode, onExit }: Multiplayer
   const isActive = Boolean(yourId) && yourId === activePlayerId;
   const activeTeam = teams.find((t) => t.id === activePlayer?.teamId);
   const guessers = players.filter((p) => p.teamId === activePlayer?.teamId && p.id !== activePlayerId);
+  const isHost = yourId === hostId;
 
   return (
     <div className="screen">
-      <ul className="scoreboard">
-        {teams.map((t) => (
-          <li key={t.id}>
-            {t.name}: {t.score}
-          </li>
-        ))}
-      </ul>
+      <div className="game-header-row">
+        <ul className="scoreboard">
+          {teams.map((t) => (
+            <li key={t.id}>
+              {t.name}: {t.score}
+            </li>
+          ))}
+        </ul>
+        {isHost && (
+          <HostMenu
+            onEndGame={handleCloseRoom}
+            onChangeRules={() => send({ type: "new_setup" })}
+            canTogglePause={turn?.phase === "in_progress"}
+            paused={Boolean(turn?.paused)}
+            onPause={() => send({ type: "pause_turn" })}
+            onResume={() => send({ type: "resume_turn" })}
+          />
+        )}
+      </div>
 
       {!turn &&
         (isActive ? (
@@ -278,13 +296,17 @@ export default function MultiplayerGame({ initialJoinCode, onExit }: Multiplayer
 
       {turn?.phase === "in_progress" && isActive && (
         <div className="turn">
-          <div className="timer">{secondsLeft}s</div>
+          <div className="timer">{turn.paused ? "⏸️" : secondsLeft}</div>
           <div className="word" key={turn.currentIndex}>
             {word?.text}
           </div>
           <div className="actions">
-            {rules?.allowSkip && <button onClick={() => send({ type: "mark_skipped" })}>Пропустить</button>}
-            <button className="primary" onClick={() => send({ type: "mark_guessed" })}>
+            {rules?.allowSkip && (
+              <button disabled={turn.paused} onClick={() => send({ type: "mark_skipped" })}>
+                Пропустить
+              </button>
+            )}
+            <button className="primary" disabled={turn.paused} onClick={() => send({ type: "mark_guessed" })}>
               Угадано
             </button>
           </div>
@@ -293,7 +315,7 @@ export default function MultiplayerGame({ initialJoinCode, onExit }: Multiplayer
 
       {turn?.phase === "in_progress" && !isActive && (
         <div className="turn">
-          <div className="timer">{secondsLeft}s</div>
+          <div className="timer">{turn.paused ? "⏸️" : secondsLeft}</div>
           {word ? (
             <div className="word" key={turn.currentIndex}>
               {word.text}

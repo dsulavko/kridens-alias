@@ -82,6 +82,10 @@ function handleMessage(
       return withRoom(ctx, roomManager, socket, (room) => room.markSkipped(ctx.playerId));
     case "end_turn":
       return withRoom(ctx, roomManager, socket, (room) => room.endTurn());
+    case "pause_turn":
+      return withRoom(ctx, roomManager, socket, (room) => room.pauseTurn(ctx.playerId));
+    case "resume_turn":
+      return withRoom(ctx, roomManager, socket, (room) => room.resumeTurn(ctx.playerId));
     case "toggle_word":
       return withRoom(ctx, roomManager, socket, (room) => room.toggleWordMark(message.wordId, ctx.playerId));
     case "next_turn":

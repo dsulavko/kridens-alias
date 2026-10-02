@@ -16,6 +16,8 @@ export function startTurn(teamId: string, deck: Word[], turnDurationMs: number, 
     skippedWordIds: [],
     startedAt: now,
     turnDurationMs,
+    paused: false,
+    pausedAt: null,
   };
 }
 
