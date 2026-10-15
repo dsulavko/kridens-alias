@@ -28,7 +28,12 @@ type Mark = "guessed" | "skipped";
 
 /** No server needed: same buildDeck/turnEngine as multiplayer, run entirely on the client. */
 export default function SingleDeviceGame({ onExit }: SingleDeviceGameProps) {
+  /** The full approved pool, fetched once — the ceiling for the setup form's deck-size field and
+   * what "Все слова" falls back to. `pool` is the one actually played with: either this, or a
+   * collection-scoped refetch from `handleGameSetupStart`. */
+  const [fullPool, setFullPool] = useState<Word[] | null>(null);
   const [pool, setPool] = useState<Word[] | null>(null);
+  const [poolLoading, setPoolLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [stage, setStage] = useState<Stage>("setup");
   const [config, setConfig] = useState<SingleDeviceConfig | null>(null);
@@ -45,7 +50,10 @@ export default function SingleDeviceGame({ onExit }: SingleDeviceGameProps) {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json() as Promise<Word[]>;
       })
-      .then(setPool)
+      .then((words) => {
+        setFullPool(words);
+        setPool(words);
+      })
       .catch((err) => setLoadError(String(err)));
   }, []);
 
@@ -75,7 +83,25 @@ export default function SingleDeviceGame({ onExit }: SingleDeviceGameProps) {
     ? Math.max(0, Math.ceil((turn.turnDurationMs - (now - turn.startedAt)) / 1000))
     : null;
 
-  function handleGameSetupStart(newConfig: SingleDeviceConfig) {
+  async function handleGameSetupStart(newConfig: SingleDeviceConfig) {
+    if (newConfig.collectionId) {
+      setPoolLoading(true);
+      try {
+        const res = await fetch(`${SERVER_HTTP_URL}/api/words?collectionId=${newConfig.collectionId}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const scoped = (await res.json()) as Word[];
+        if (scoped.length === 0) throw new Error("В выбранной коллекции нет слов");
+        setPool(scoped);
+      } catch (err) {
+        setLoadError(String(err));
+        return;
+      } finally {
+        setPoolLoading(false);
+      }
+    } else if (fullPool) {
+      setPool(fullPool);
+    }
+    usedWordIds.current.clear();
     setConfig(newConfig);
     setTeams(newConfig.teamNames.map((name, i) => ({ id: `team-${i}`, name, score: 0 })));
     setCurrentTeamIndex(0);
@@ -145,14 +171,14 @@ export default function SingleDeviceGame({ onExit }: SingleDeviceGameProps) {
     );
   }
 
-  if (!pool) {
+  if (!pool || poolLoading) {
     return <div className="screen">Загрузка словаря…</div>;
   }
 
   if (stage === "setup") {
     return (
       <GameSetup
-        maxDeckSize={Math.min(30, pool.length)}
+        maxDeckSize={Math.min(30, (fullPool ?? pool).length)}
         initialConfig={config ?? undefined}
         onStart={handleGameSetupStart}
         onExit={onExit}

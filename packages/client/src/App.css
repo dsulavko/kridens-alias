@@ -504,6 +504,7 @@ li.muted {
 .modal {
   width: 400px;
   max-width: 100%;
+  max-height: 100%;
   padding: 1.75rem;
   display: flex;
   flex-direction: column;
@@ -517,4 +518,24 @@ li.muted {
 
 .modal .actions {
   margin-top: 0.25rem;
+}
+
+/* Wide modals (e.g. the collection-filter editor) can outgrow the viewport, so they need an
+   internal scrollbar — but a native scrollbar on an element with border-radius doesn't get
+   clipped to the rounded corners and visibly pokes out past them. Splitting into an outer box
+   that only clips (overflow: hidden, no scroll of its own) and an inner one that scrolls (no
+   radius of its own, so there's nothing for its scrollbar to poke past) keeps the rounded corners
+   intact: the outer's clip applies to everything inside it, scrollbar included. */
+.modal.modal-wide {
+  width: 640px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.modal-scroll {
+  overflow-y: auto;
+  padding: 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
 }

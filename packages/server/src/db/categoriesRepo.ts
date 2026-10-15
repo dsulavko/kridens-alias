@@ -6,7 +6,11 @@ export class CategoryInUseError extends Error {}
 export function listCategories(): CategoryInfo[] {
   return db
     .prepare(
-      "SELECT c.id, c.name, COUNT(w.id) AS wordCount FROM categories c LEFT JOIN words w ON w.category = c.name GROUP BY c.id ORDER BY c.name",
+      `SELECT c.id, c.name, COUNT(wc.word_id) AS wordCount
+       FROM categories c
+       LEFT JOIN word_categories wc ON wc.category_id = c.id
+       GROUP BY c.id
+       ORDER BY c.name`,
     )
     .all() as unknown as CategoryInfo[];
 }
@@ -16,9 +20,9 @@ export function createCategory(name: string) {
 }
 
 export function deleteCategory(id: number) {
-  const row = db.prepare("SELECT name FROM categories WHERE id = ?").get(id) as { name: string } | undefined;
+  const row = db.prepare("SELECT id FROM categories WHERE id = ?").get(id) as { id: number } | undefined;
   if (!row) return;
-  const { count } = db.prepare("SELECT COUNT(*) AS count FROM words WHERE category = ?").get(row.name) as {
+  const { count } = db.prepare("SELECT COUNT(*) AS count FROM word_categories WHERE category_id = ?").get(id) as {
     count: number;
   };
   if (count > 0) throw new CategoryInUseError();

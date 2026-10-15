@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
-import type { AdminWord, CategoryInfo, CollectionInfo, Weight } from "@kridens/core";
+import type { AdminWord, CategoryInfo, CollectionFilter, CollectionInfo, Weight } from "@kridens/core";
 import { SERVER_HTTP_URL } from "../../config";
+import CollectionFilterEditor from "./CollectionFilterEditor";
+import { formatCollectionFilter } from "./collectionFilter";
 
 interface AdminCollectionDetailProps {
   collection: CollectionInfo;
@@ -9,7 +11,7 @@ interface AdminCollectionDetailProps {
   onBack: () => void;
 }
 
-type WeightFilter = Weight | "all";
+type SelectFilter<T> = T | "all";
 
 const WEIGHT_OPTIONS: Weight[] = [1, 2, 3, 4, 5];
 
@@ -18,9 +20,16 @@ export default function AdminCollectionDetail({ collection, token, onLogout, onB
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
-  const [weightFilter, setWeightFilter] = useState<WeightFilter>("all");
+  const [weightFilter, setWeightFilter] = useState<SelectFilter<Weight>>("all");
   const [candidates, setCandidates] = useState<AdminWord[]>([]);
   const [categories, setCategories] = useState<CategoryInfo[]>([]);
+  const [sources, setSources] = useState<string[]>([]);
+
+  const isDynamic = collection.type === "dynamic";
+
+  const [currentFilter, setCurrentFilter] = useState<CollectionFilter | null>(collection.filter);
+  const [editFilter, setEditFilter] = useState<CollectionFilter>(collection.filter ?? {});
+  const [savingFilter, setSavingFilter] = useState(false);
 
   function loadWords() {
     fetch(`${SERVER_HTTP_URL}/api/admin/collections/${collection.id}/words`, {
@@ -47,9 +56,14 @@ export default function AdminCollectionDetail({ collection, token, onLogout, onB
       .then((res) => (res.ok ? res.json() : []))
       .then((data: CategoryInfo[]) => setCategories(data))
       .catch(() => setCategories([]));
+    fetch(`${SERVER_HTTP_URL}/api/admin/sources`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: string[]) => setSources(data))
+      .catch(() => setSources([]));
   }, [token]);
 
   useEffect(() => {
+    if (isDynamic) return;
     const query = search.trim();
     if (!query && categoryFilter === "all" && weightFilter === "all") {
       setCandidates([]);
@@ -78,7 +92,7 @@ export default function AdminCollectionDetail({ collection, token, onLogout, onB
       });
     return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, categoryFilter, weightFilter, collection.id, token]);
+  }, [search, categoryFilter, weightFilter, collection.id, token, isDynamic]);
 
   async function addWord(word: AdminWord) {
     try {
@@ -117,6 +131,28 @@ export default function AdminCollectionDetail({ collection, token, onLogout, onB
     }
   }
 
+  async function saveFilter() {
+    setSavingFilter(true);
+    try {
+      const res = await fetch(`${SERVER_HTTP_URL}/api/admin/collections/${collection.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ filter: editFilter }),
+      });
+      if (res.status === 401) {
+        onLogout();
+        return;
+      }
+      if (!res.ok) throw new Error("request failed");
+      setCurrentFilter(editFilter);
+      loadWords();
+    } catch {
+      setError("Не удалось сохранить фильтр");
+    } finally {
+      setSavingFilter(false);
+    }
+  }
+
   return (
     <div className="admin-words">
       <div className="admin-words-header">
@@ -128,43 +164,60 @@ export default function AdminCollectionDetail({ collection, token, onLogout, onB
 
       {error && <p className="error">{error}</p>}
 
-      <section>
-        <h3>Добавить слова</h3>
-        <div className="admin-create-form">
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Поиск по слову" />
-          <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
-            <option value="all">Все категории</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.name}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-          <select
-            value={weightFilter}
-            onChange={(e) => setWeightFilter(e.target.value === "all" ? "all" : (Number(e.target.value) as Weight))}
-          >
-            <option value="all">Вся сложность</option>
-            {WEIGHT_OPTIONS.map((w) => (
-              <option key={w} value={w}>
-                {w}
-              </option>
-            ))}
-          </select>
-        </div>
-        {candidates.length > 0 && (
-          <ul className="admin-candidate-list">
-            {candidates.map((w) => (
-              <li key={w.id}>
-                <span>
-                  {w.text} <span className="muted">({w.category})</span>
-                </span>
-                <button onClick={() => addWord(w)}>+ Добавить</button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      {isDynamic ? (
+        <section>
+          <h3>Фильтр (динамическая коллекция)</h3>
+          <p className="muted">Слова подбираются автоматически по условиям ниже: {formatCollectionFilter(currentFilter)}</p>
+          <CollectionFilterEditor
+            token={token}
+            filter={editFilter}
+            onChange={setEditFilter}
+            categories={categories}
+            sources={sources}
+          />
+          <button onClick={saveFilter} disabled={savingFilter}>
+            Сохранить фильтр
+          </button>
+        </section>
+      ) : (
+        <section>
+          <h3>Добавить слова</h3>
+          <div className="admin-create-form">
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Поиск по слову" />
+            <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+              <option value="all">Все категории</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.name}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            <select
+              value={weightFilter}
+              onChange={(e) => setWeightFilter(e.target.value === "all" ? "all" : (Number(e.target.value) as Weight))}
+            >
+              <option value="all">Вся сложность</option>
+              {WEIGHT_OPTIONS.map((w) => (
+                <option key={w} value={w}>
+                  {w}
+                </option>
+              ))}
+            </select>
+          </div>
+          {candidates.length > 0 && (
+            <ul className="admin-candidate-list">
+              {candidates.map((w) => (
+                <li key={w.id}>
+                  <span>
+                    {w.text} <span className="muted">({w.categories.join(", ")})</span>
+                  </span>
+                  <button onClick={() => addWord(w)}>+ Добавить</button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
 
       {words === null && !error ? (
         <p>Загрузка…</p>
@@ -177,7 +230,8 @@ export default function AdminCollectionDetail({ collection, token, onLogout, onB
                 <th>Слово</th>
                 <th>Категория</th>
                 <th>Сложность</th>
-                <th className="actions-col"></th>
+                {isDynamic && <th>Источник</th>}
+                {!isDynamic && <th className="actions-col"></th>}
               </tr>
             </thead>
             <tbody>
@@ -185,23 +239,26 @@ export default function AdminCollectionDetail({ collection, token, onLogout, onB
                 <tr key={w.id}>
                   <td>{w.id}</td>
                   <td>{w.text}</td>
-                  <td>{w.category}</td>
+                  <td>{w.categories.join(", ")}</td>
                   <td>{w.weight}</td>
-                  <td className="actions-col">
-                    <button
-                      className="icon-btn danger"
-                      title="Убрать из коллекции"
-                      aria-label="Убрать из коллекции"
-                      onClick={() => removeWord(w)}
-                    >
-                      🗑
-                    </button>
-                  </td>
+                  {isDynamic && <td className="source-col">{w.source ?? "—"}</td>}
+                  {!isDynamic && (
+                    <td className="actions-col">
+                      <button
+                        className="icon-btn danger"
+                        title="Убрать из коллекции"
+                        aria-label="Убрать из коллекции"
+                        onClick={() => removeWord(w)}
+                      >
+                        🗑
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
           </table>
-          {words?.length === 0 && <p className="muted">В коллекции пока нет слов</p>}
+          {words?.length === 0 && <p className="muted">{isDynamic ? "Под фильтр пока не попало ни одно слово" : "В коллекции пока нет слов"}</p>}
         </div>
       )}
     </div>

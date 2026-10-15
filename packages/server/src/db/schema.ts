@@ -37,9 +37,15 @@ export const CREATE_COLLECTIONS_TABLE_SQL = `
   CREATE TABLE IF NOT EXISTS collections (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
-    created_at INTEGER NOT NULL
+    created_at INTEGER NOT NULL,
+    type TEXT NOT NULL DEFAULT 'static',
+    filter_json TEXT
   );
 `;
+
+/** collections predates `type`/`filter_json` — add them in place for databases created before dynamic collections. */
+export const ADD_COLLECTION_TYPE_COLUMN_SQL = `ALTER TABLE collections ADD COLUMN type TEXT NOT NULL DEFAULT 'static';`;
+export const ADD_COLLECTION_FILTER_JSON_COLUMN_SQL = `ALTER TABLE collections ADD COLUMN filter_json TEXT;`;
 
 export const CREATE_WORD_COLLECTIONS_TABLE_SQL = `
   CREATE TABLE IF NOT EXISTS word_collections (
@@ -47,6 +53,23 @@ export const CREATE_WORD_COLLECTIONS_TABLE_SQL = `
     collection_id INTEGER NOT NULL,
     PRIMARY KEY (word_id, collection_id)
   );
+`;
+
+/** Many-to-many: the admin console lets a word carry several categories, unlike the legacy
+ * `words.category` column (kept only to back the game-facing `Word` type, which never filters by it). */
+export const CREATE_WORD_CATEGORIES_TABLE_SQL = `
+  CREATE TABLE IF NOT EXISTS word_categories (
+    word_id INTEGER NOT NULL,
+    category_id INTEGER NOT NULL,
+    PRIMARY KEY (word_id, category_id)
+  );
+`;
+
+/** One-time backfill for databases created before word_categories existed: turns each word's
+ * legacy single `category` column value into its first (and, until reassigned, only) tag. */
+export const BACKFILL_WORD_CATEGORIES_SQL = `
+  INSERT OR IGNORE INTO word_categories (word_id, category_id)
+  SELECT w.id, c.id FROM words w JOIN categories c ON c.name = w.category;
 `;
 
 /** A host-saved room: its rules snapshot (kept in sync while the lobby that saved it is still

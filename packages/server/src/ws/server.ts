@@ -1,6 +1,7 @@
 import type { Server as HttpServer } from "node:http";
 import { WebSocketServer, type WebSocket } from "ws";
 import type { ClientMessage, ServerMessage } from "@kridens/core";
+import { getApprovedWordsForCollection } from "../db/collectionsRepo.js";
 import { getSavedRoomRules, getSavedRoomUsedWordIds } from "../db/savedRoomsRepo.js";
 import { getApprovedWords } from "../db/wordsRepo.js";
 import { RoomManager } from "../rooms/roomManager.js";
@@ -48,7 +49,7 @@ function handleMessage(
 
   switch (message.type) {
     case "create_room": {
-      const pool = getApprovedWords();
+      let pool = getApprovedWords();
       const options: RoomOptions = {};
       // A link built from a saved room — restore its rules and resume its word history, falling
       // back to an ordinary fresh room if the GUID is stale/unknown.
@@ -58,6 +59,13 @@ function handleMessage(
           options.savedRoomGuid = message.savedRoomGuid;
           options.initialRules = initialRules;
           options.initialUsedWordIds = getSavedRoomUsedWordIds(message.savedRoomGuid);
+          // If the pinned collection has since gone empty, fall back to the full pool rather than
+          // handing the room a wordPool that would crash deck building on the first turn — there's
+          // no host connected yet at this point to show an error to.
+          if (initialRules.collectionId) {
+            const scoped = getApprovedWordsForCollection(initialRules.collectionId);
+            if (scoped.length > 0) pool = scoped;
+          }
         }
       }
       const room = roomManager.createRoom(ctx.playerId, pool, options);
@@ -78,7 +86,19 @@ function handleMessage(
       return;
     }
     case "update_rules":
-      return withRoom(ctx, roomManager, socket, (room) => room.updateRules(message.rules, ctx.playerId));
+      return withRoom(ctx, roomManager, socket, (room) => {
+        if (!room.canUpdateRules(ctx.playerId)) return;
+        if (message.rules.collectionId !== room.getRules().collectionId) {
+          const pool = message.rules.collectionId
+            ? getApprovedWordsForCollection(message.rules.collectionId)
+            : getApprovedWords();
+          // Reject the change outright rather than handing the room an empty pool — that would
+          // crash deck building on the very next turn.
+          if (pool.length === 0) return sendError(socket, "В выбранной коллекции нет слов");
+          room.setWordPool(pool);
+        }
+        room.updateRules(message.rules, ctx.playerId);
+      });
     case "assign_player":
       return withRoom(ctx, roomManager, socket, (room) =>
         room.assignPlayer(message.playerId, message.teamId, ctx.playerId),

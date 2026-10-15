@@ -10,6 +10,7 @@ interface AdminWordsListProps {
 type CategoryFilter = Category | "all";
 type StatusFilter = WordStatus | "all";
 type WeightFilter = Weight | "all";
+type SourceFilter = string | "all";
 
 const WEIGHT_OPTIONS: Weight[] = [1, 2, 3, 4, 5];
 const STATUS_OPTIONS: WordStatus[] = ["approved", "pending", "rejected"];
@@ -34,6 +35,7 @@ export default function AdminWordsList({ token, onLogout }: AdminWordsListProps)
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [weightFilter, setWeightFilter] = useState<WeightFilter>("all");
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
   const [sortColumn, setSortColumn] = useState<SortColumn>("id");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -43,6 +45,7 @@ export default function AdminWordsList({ token, onLogout }: AdminWordsListProps)
   const [confirmDeleteWord, setConfirmDeleteWord] = useState<AdminWord | null>(null);
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const [categories, setCategories] = useState<CategoryInfo[]>([]);
+  const [sources, setSources] = useState<string[]>([]);
 
   useEffect(() => {
     fetch(`${SERVER_HTTP_URL}/api/admin/words`, { headers: { Authorization: `Bearer ${token}` } })
@@ -66,30 +69,37 @@ export default function AdminWordsList({ token, onLogout }: AdminWordsListProps)
       .then((res) => (res.ok ? res.json() : []))
       .then((data: CategoryInfo[]) => setCategories(data))
       .catch(() => setCategories([]));
+    fetch(`${SERVER_HTTP_URL}/api/admin/sources`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: string[]) => setSources(data))
+      .catch(() => setSources([]));
   }, [token]);
 
   const filtered = useMemo(() => {
     if (!words) return [];
     const query = search.trim().toLowerCase();
     const rows = words.filter((w) => {
-      if (categoryFilter !== "all" && w.category !== categoryFilter) return false;
+      if (categoryFilter !== "all" && !w.categories.includes(categoryFilter)) return false;
       if (statusFilter !== "all" && w.status !== statusFilter) return false;
       if (weightFilter !== "all" && w.weight !== weightFilter) return false;
+      if (sourceFilter !== "all" && w.source !== sourceFilter) return false;
       if (query && !w.text.toLowerCase().includes(query)) return false;
       return true;
     });
     const sign = sortDirection === "asc" ? 1 : -1;
+    const sortValue = (w: AdminWord): string | number =>
+      sortColumn === "category" ? w.categories.join(", ") : w[sortColumn] ?? "";
     return [...rows].sort((a, b) => {
-      const av = a[sortColumn] ?? "";
-      const bv = b[sortColumn] ?? "";
+      const av = sortValue(a);
+      const bv = sortValue(b);
       if (typeof av === "string" && typeof bv === "string") return av.localeCompare(bv) * sign;
       return ((av as number) - (bv as number)) * sign;
     });
-  }, [words, search, categoryFilter, statusFilter, weightFilter, sortColumn, sortDirection]);
+  }, [words, search, categoryFilter, statusFilter, weightFilter, sourceFilter, sortColumn, sortDirection]);
 
   useEffect(() => {
     setPage(1);
-  }, [search, categoryFilter, statusFilter, weightFilter]);
+  }, [search, categoryFilter, statusFilter, weightFilter, sourceFilter]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
@@ -271,28 +281,20 @@ export default function AdminWordsList({ token, onLogout }: AdminWordsListProps)
     <div className="admin-words">
       <div className="admin-words-header">
         <h2>Слова ({words?.length ?? "…"})</h2>
-        <button className="ghost-btn" onClick={onLogout}>
-          Выйти
-        </button>
       </div>
 
       {error && <p className="error">{error}</p>}
 
-      <div className="admin-filters">
+      <div className="admin-search-row">
         <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Поиск по слову" />
+      </div>
+
+      <div className="admin-filters">
         <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value as CategoryFilter)}>
           <option value="all">Все категории</option>
           {categories.map((c) => (
             <option key={c.id} value={c.name}>
               {c.name}
-            </option>
-          ))}
-        </select>
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}>
-          <option value="all">Все статусы</option>
-          {STATUS_OPTIONS.map((status) => (
-            <option key={status} value={status}>
-              {status}
             </option>
           ))}
         </select>
@@ -304,6 +306,22 @@ export default function AdminWordsList({ token, onLogout }: AdminWordsListProps)
           {WEIGHT_OPTIONS.map((w) => (
             <option key={w} value={w}>
               {w}
+            </option>
+          ))}
+        </select>
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}>
+          <option value="all">Все статусы</option>
+          {STATUS_OPTIONS.map((status) => (
+            <option key={status} value={status}>
+              {status}
+            </option>
+          ))}
+        </select>
+        <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)}>
+          <option value="all">Все источники</option>
+          {sources.map((s) => (
+            <option key={s} value={s}>
+              {s}
             </option>
           ))}
         </select>
@@ -366,7 +384,7 @@ export default function AdminWordsList({ token, onLogout }: AdminWordsListProps)
                   </td>
                   <td>{w.id}</td>
                   <td>{w.text}</td>
-                  <td>{w.category}</td>
+                  <td>{w.categories.join(", ")}</td>
                   <td>
                     <select value={w.weight} onChange={(e) => applyWeight(w.id, Number(e.target.value) as Weight)}>
                       {WEIGHT_OPTIONS.map((weight) => (

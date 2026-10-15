@@ -8,6 +8,12 @@ const MAX_TEAMS = 10;
 const PLAYER_DRAG_TYPE = "application/x-player-id";
 const REQUIRED_FIELD_MESSAGE = "Заполните это поле";
 
+interface CollectionOption {
+  id: number;
+  name: string;
+  wordCount: number;
+}
+
 interface RoomLobbyProps {
   roomCode: string;
   teams: TeamState[];
@@ -50,15 +56,35 @@ export default function RoomLobby({
   const [limitScore, setLimitScore] = useState(rules.limitScore);
   const [allowSkip, setAllowSkip] = useState(rules.allowSkip);
   const [showWordToOthers, setShowWordToOthers] = useState(rules.showWordToOthers);
+  const [collectionId, setCollectionId] = useState<number | null>(rules.collectionId ?? null);
+  const [collections, setCollections] = useState<CollectionOption[]>([]);
 
   useEffect(() => {
     fetch(`${SERVER_HTTP_URL}/api/words`)
       .then((res) => res.json())
       .then((words: unknown[]) => setPoolSize(words.length))
       .catch(() => setPoolSize(null));
+    fetch(`${SERVER_HTTP_URL}/api/collections`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: CollectionOption[]) => setCollections(data))
+      .catch(() => setCollections([]));
   }, []);
 
-  const maxDeckSize = Math.min(30, poolSize ?? rules.deckConfig.count);
+  // No "all words" sentinel in the dropdown — it's just collections, defaulting to the real
+  // "Все слова" collection (or the first available one, if that's been renamed/removed).
+  useEffect(() => {
+    if (collectionId !== null) return;
+    const available = collections.filter((c) => c.wordCount > 0);
+    const defaultCollection = available.find((c) => c.name === "Все слова") ?? available[0];
+    if (defaultCollection) setCollectionId(defaultCollection.id);
+  }, [collections, collectionId]);
+
+  const selectedCollection = collections.find((c) => c.id === collectionId) ?? null;
+  const maxDeckSize = Math.min(30, selectedCollection ? selectedCollection.wordCount : poolSize ?? rules.deckConfig.count);
+
+  useEffect(() => {
+    setDeckSize((size) => Math.min(size, maxDeckSize));
+  }, [maxDeckSize]);
 
   function renameTeam(index: number, name: string) {
     onUpdateRules({ ...rules, teamNames: rules.teamNames.map((n, i) => (i === index ? name : n)) });
@@ -77,6 +103,7 @@ export default function RoomLobby({
   }
 
   function handleStartGame() {
+    if (selectedCollection?.wordCount === 0) return;
     onUpdateRules({
       ...rules,
       deckConfig: scaledDeckConfig(clamp(deckSize, 4, maxDeckSize)),
@@ -86,6 +113,7 @@ export default function RoomLobby({
       limitScore,
       allowSkip,
       showWordToOthers,
+      collectionId,
     });
     onStartGame();
   }
@@ -189,13 +217,16 @@ export default function RoomLobby({
           onAllowSkipChange={setAllowSkip}
           showWordToOthers={showWordToOthers}
           onShowWordToOthersChange={setShowWordToOthers}
+          collections={collections}
+          collectionId={collectionId}
+          onCollectionIdChange={setCollectionId}
         />
       ) : (
-        <ReadOnlyRules rules={rules} />
+        <ReadOnlyRules rules={rules} collectionName={collections.find((c) => c.id === rules.collectionId)?.name ?? null} />
       )}
 
       {isHost ? (
-        <button className="primary" onClick={handleStartGame}>
+        <button className="primary" onClick={handleStartGame} disabled={selectedCollection?.wordCount === 0}>
           Начать игру
         </button>
       ) : (
@@ -395,6 +426,9 @@ function HostRules({
   onAllowSkipChange,
   showWordToOthers,
   onShowWordToOthersChange,
+  collections,
+  collectionId,
+  onCollectionIdChange,
 }: {
   turnDurationSec: number;
   onTurnDurationSecChange: (value: number) => void;
@@ -411,10 +445,27 @@ function HostRules({
   onAllowSkipChange: (value: boolean) => void;
   showWordToOthers: boolean;
   onShowWordToOthersChange: (value: boolean) => void;
+  collections: CollectionOption[];
+  collectionId: number | null;
+  onCollectionIdChange: (value: number | null) => void;
 }) {
+  const selectedCollection = collections.find((c) => c.id === collectionId) ?? null;
   return (
     <section className="setup-form">
       <h3>Правила</h3>
+      <label>
+        Коллекция слов
+        <select value={collectionId ?? ""} onChange={(e) => onCollectionIdChange(Number(e.target.value))}>
+          {collections
+            .filter((c) => c.wordCount > 0)
+            .map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name} ({c.wordCount})
+              </option>
+            ))}
+        </select>
+      </label>
+      {selectedCollection?.wordCount === 0 && <p className="error">В этой коллекции нет слов — выберите другую</p>}
       <label>
         Длительность хода, сек
         <select value={turnDurationSec} onChange={(e) => onTurnDurationSecChange(Number(e.target.value))}>
@@ -468,10 +519,11 @@ function HostRules({
   );
 }
 
-function ReadOnlyRules({ rules }: { rules: RoomRules }) {
+function ReadOnlyRules({ rules, collectionName }: { rules: RoomRules; collectionName: string | null }) {
   return (
     <section>
       <h3>Правила</h3>
+      <p>Коллекция слов: {collectionName ?? "Все слова"}</p>
       <p>Слов в ходе: {rules.limitWordsPerTurn ? rules.deckConfig.count : "не ограничено"}</p>
       <p>Длительность хода: {rules.turnDurationMs / 1000} сек</p>
       <p>Очков до победы: {rules.limitScore ? rules.winScore : "не ограничено"}</p>

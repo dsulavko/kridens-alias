@@ -1,16 +1,20 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { WordStatus } from "@kridens/core";
+import type { CollectionFilter, CollectionType, WordStatus } from "@kridens/core";
 import { isAuthorized, login } from "./adminAuth.js";
 import { CategoryInUseError, createCategory, deleteCategory, listCategories } from "./db/categoriesRepo.js";
 import {
   addWordsToCollection,
   CollectionInUseError,
+  countWordsMatchingFilter,
   createCollection,
   deleteCollection,
+  getApprovedWordsForCollection,
   getCandidateWords,
+  getCollection,
   getCollectionWords,
   listCollections,
   removeWordsFromCollection,
+  updateCollection,
 } from "./db/collectionsRepo.js";
 import { deleteSavedRoom, listSavedRoomsForAdmin } from "./db/savedRoomsRepo.js";
 import {
@@ -18,6 +22,7 @@ import {
   deleteWordsBulk,
   getApprovedWords,
   listAllForAdmin,
+  listDistinctSources,
   updateStatus,
   updateStatusBulk,
   updateWeight,
@@ -39,14 +44,54 @@ function isPositiveIntArray(value: unknown): value is number[] {
   return Array.isArray(value) && value.length > 0 && value.every((id) => typeof id === "number" && Number.isInteger(id) && id > 0);
 }
 
-function parseName(body: string): string | null {
+/** Name validation (required, 1-100 chars) is identical across categories and collections. */
+function parseEntityName(body: string): string | null {
   try {
     const { name } = JSON.parse(body) as { name?: unknown };
     const trimmed = typeof name === "string" ? name.trim() : "";
-    return trimmed && trimmed.length <= 60 ? trimmed : null;
+    return trimmed && trimmed.length <= 100 ? trimmed : null;
   } catch {
     return null;
   }
+}
+
+const COLLECTION_TYPES: CollectionType[] = ["static", "dynamic"];
+function isValidCollectionType(value: unknown): value is CollectionType {
+  return typeof value === "string" && COLLECTION_TYPES.includes(value as CollectionType);
+}
+
+function toStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((v): v is string => typeof v === "string" && v.length > 0);
+}
+
+function parseFilterInput(value: unknown): CollectionFilter | null {
+  if (typeof value !== "object" || value === null) return null;
+  const { category, source, weight } = value as Record<string, unknown>;
+  const filter: CollectionFilter = {};
+  const categories = toStringArray(category);
+  if (categories.length > 0) filter.category = categories;
+  const sources = toStringArray(source);
+  if (sources.length > 0) filter.source = sources;
+  const weights = (Array.isArray(weight) ? weight : []).filter(isValidWeight);
+  if (weights.length > 0) filter.weight = weights;
+  return filter;
+}
+
+/** Same shape as `parseFilterInput`, but from repeated query-string params (e.g. `?category=a&category=b`)
+ * for the stateless word-count preview, which runs before a collection exists to PATCH. */
+function parseFilterFromQuery(url: URL): CollectionFilter {
+  const filter: CollectionFilter = {};
+  const categories = url.searchParams.getAll("category");
+  if (categories.length > 0) filter.category = categories;
+  const sources = url.searchParams.getAll("source");
+  if (sources.length > 0) filter.source = sources;
+  const weights = url.searchParams
+    .getAll("weight")
+    .map((w) => Number(w))
+    .filter(isValidWeight);
+  if (weights.length > 0) filter.weight = weights;
+  return filter;
 }
 
 function readBody(req: IncomingMessage): Promise<string> {
@@ -74,9 +119,20 @@ export function handleHttpRequest(req: IncomingMessage, res: ServerResponse, roo
   }
 
   if (url.pathname === "/api/words" && req.method === "GET") {
-    const words = getApprovedWords();
+    const collectionIdParam = Number(url.searchParams.get("collectionId"));
+    const words = Number.isInteger(collectionIdParam) && collectionIdParam > 0
+      ? getApprovedWordsForCollection(collectionIdParam)
+      : getApprovedWords();
     res.setHeader("Content-Type", "application/json");
     res.end(JSON.stringify(words));
+    return true;
+  }
+
+  /** Public, unlike /api/admin/collections — the game-setup screens need the list (name + word
+   * count) to offer "play from this collection only", with no admin auth. */
+  if (url.pathname === "/api/collections" && req.method === "GET") {
+    res.setHeader("Content-Type", "application/json");
+    res.end(JSON.stringify(listCollections().map(({ id, name, wordCount }) => ({ id, name, wordCount }))));
     return true;
   }
 
@@ -253,7 +309,7 @@ export function handleHttpRequest(req: IncomingMessage, res: ServerResponse, roo
       return true;
     }
     readBody(req).then((body) => {
-      const name = parseName(body);
+      const name = parseEntityName(body);
       if (!name) {
         res.statusCode = 400;
         res.end();
@@ -287,6 +343,17 @@ export function handleHttpRequest(req: IncomingMessage, res: ServerResponse, roo
     return true;
   }
 
+  if (url.pathname === "/api/admin/sources" && req.method === "GET") {
+    if (!isAuthorized(req)) {
+      res.statusCode = 401;
+      res.end();
+      return true;
+    }
+    res.setHeader("Content-Type", "application/json");
+    res.end(JSON.stringify(listDistinctSources()));
+    return true;
+  }
+
   if (url.pathname === "/api/admin/collections" && req.method === "GET") {
     if (!isAuthorized(req)) {
       res.statusCode = 401;
@@ -305,14 +372,24 @@ export function handleHttpRequest(req: IncomingMessage, res: ServerResponse, roo
       return true;
     }
     readBody(req).then((body) => {
-      const name = parseName(body);
-      if (!name) {
+      let parsed: { name?: unknown; type?: unknown; filter?: unknown };
+      try {
+        parsed = JSON.parse(body) as { name?: unknown; type?: unknown; filter?: unknown };
+      } catch {
         res.statusCode = 400;
         res.end();
         return;
       }
+      const name = typeof parsed.name === "string" ? parsed.name.trim() : "";
+      if (!name || name.length > 100) {
+        res.statusCode = 400;
+        res.end();
+        return;
+      }
+      const type: CollectionType = isValidCollectionType(parsed.type) ? parsed.type : "static";
+      const filter = type === "dynamic" ? parseFilterInput(parsed.filter) : null;
       try {
-        createCollection(name);
+        createCollection(name, type, filter);
         res.statusCode = 204;
       } catch {
         res.statusCode = 409;
@@ -322,7 +399,52 @@ export function handleHttpRequest(req: IncomingMessage, res: ServerResponse, roo
     return true;
   }
 
+  if (url.pathname === "/api/admin/collections/preview-count" && req.method === "GET") {
+    if (!isAuthorized(req)) {
+      res.statusCode = 401;
+      res.end();
+      return true;
+    }
+    const filter = parseFilterFromQuery(url);
+    res.setHeader("Content-Type", "application/json");
+    res.end(JSON.stringify({ count: countWordsMatchingFilter(filter) }));
+    return true;
+  }
+
   const collectionIdMatch = url.pathname.match(/^\/api\/admin\/collections\/(\d+)$/);
+  if (collectionIdMatch && req.method === "PATCH") {
+    if (!isAuthorized(req)) {
+      res.statusCode = 401;
+      res.end();
+      return true;
+    }
+    const id = Number(collectionIdMatch[1]);
+    readBody(req).then((body) => {
+      try {
+        const parsed = JSON.parse(body) as { name?: unknown; filter?: unknown };
+        const updates: { name?: string; filter?: CollectionFilter | null } = {};
+        if (parsed.name !== undefined) {
+          const trimmed = typeof parsed.name === "string" ? parsed.name.trim() : "";
+          if (!trimmed || trimmed.length > 100) {
+            res.statusCode = 400;
+            res.end();
+            return;
+          }
+          updates.name = trimmed;
+        }
+        if (parsed.filter !== undefined) {
+          updates.filter = parseFilterInput(parsed.filter);
+        }
+        updateCollection(id, updates);
+        res.statusCode = 204;
+      } catch {
+        res.statusCode = 400;
+      }
+      res.end();
+    });
+    return true;
+  }
+
   if (collectionIdMatch && req.method === "DELETE") {
     if (!isAuthorized(req)) {
       res.statusCode = 401;
@@ -358,6 +480,11 @@ export function handleHttpRequest(req: IncomingMessage, res: ServerResponse, roo
       return true;
     }
     const collectionId = Number(collectionWordsMatch[1]);
+    if (getCollection(collectionId)?.type !== "static") {
+      res.statusCode = 400;
+      res.end();
+      return true;
+    }
     readBody(req).then((body) => {
       try {
         const { ids } = JSON.parse(body) as { ids?: unknown };
@@ -384,6 +511,11 @@ export function handleHttpRequest(req: IncomingMessage, res: ServerResponse, roo
       return true;
     }
     const collectionId = Number(collectionWordsMatch[1]);
+    if (getCollection(collectionId)?.type !== "static") {
+      res.statusCode = 400;
+      res.end();
+      return true;
+    }
     readBody(req).then((body) => {
       try {
         const { ids } = JSON.parse(body) as { ids?: unknown };
@@ -407,6 +539,11 @@ export function handleHttpRequest(req: IncomingMessage, res: ServerResponse, roo
   if (candidateWordsMatch && req.method === "GET") {
     if (!isAuthorized(req)) {
       res.statusCode = 401;
+      res.end();
+      return true;
+    }
+    if (getCollection(Number(candidateWordsMatch[1]))?.type !== "static") {
+      res.statusCode = 400;
       res.end();
       return true;
     }

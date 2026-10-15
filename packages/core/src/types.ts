@@ -13,11 +13,12 @@ export interface Word {
   weight: Weight;
 }
 
-/** Full row shape for the admin console — includes moderation/metadata fields the game client never sees. */
+/** Full row shape for the admin console — includes moderation/metadata fields the game client never sees.
+ * Unlike the game-facing `Word`, a word can be tagged with several categories here. */
 export interface AdminWord {
   id: number;
   text: string;
-  category: Category;
+  categories: Category[];
   weight: Weight;
   status: WordStatus;
   sourceFreq: number | null;
@@ -31,11 +32,26 @@ export interface CategoryInfo {
   wordCount: number;
 }
 
+export type CollectionType = "static" | "dynamic";
+
+/** Dynamic collections match words by these fields instead of an explicit word_collections link
+ * (and, unconditionally, only words with `status: "approved"`). Each field is a multiselect: an
+ * unset/empty field matches any value, a non-empty one matches a word whose value is any of the
+ * listed options (OR within a field, AND across fields). */
+export interface CollectionFilter {
+  category?: Category[] | null;
+  source?: string[] | null;
+  weight?: Weight[] | null;
+}
+
 export interface CollectionInfo {
   id: number;
   name: string;
   wordCount: number;
   createdAt: number;
+  type: CollectionType;
+  /** Non-null only for dynamic collections. */
+  filter: CollectionFilter | null;
 }
 
 /** Admin console's view of a host-saved room — see Room.saveRoom() for how these accumulate. */
@@ -92,6 +108,9 @@ export interface RoomRules {
   allowSkip: boolean;
   /** When false, only the explaining player sees the current word; others just see the timer. */
   showWordToOthers: boolean;
+  /** Restricts the word pool to one collection; null/absent means every approved word. Cycles
+   * back to the start once exhausted, same as the unrestricted pool already does. */
+  collectionId?: number | null;
 }
 
 export interface PlayerInfo {

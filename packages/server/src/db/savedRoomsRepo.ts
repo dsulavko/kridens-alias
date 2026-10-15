@@ -75,3 +75,17 @@ export function deleteSavedRoom(guid: string): void {
   db.prepare("DELETE FROM saved_room_used_words WHERE saved_room_guid = ?").run(guid);
   db.prepare("DELETE FROM saved_rooms WHERE guid = ?").run(guid);
 }
+
+/** A saved room's rules snapshot can pin a collection; that collection must stay around for as
+ * long as the saved link does, so deleting it needs to be blocked the same way an in-use static
+ * collection already is. */
+export function isCollectionReferencedBySavedRoom(collectionId: number): boolean {
+  const rows = db.prepare("SELECT rules_json FROM saved_rooms").all() as { rules_json: string }[];
+  return rows.some((row) => {
+    try {
+      return (JSON.parse(row.rules_json) as RoomRules).collectionId === collectionId;
+    } catch {
+      return false;
+    }
+  });
+}

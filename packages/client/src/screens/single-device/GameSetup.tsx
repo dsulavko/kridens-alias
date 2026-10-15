@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { pickRandomTeamNames, scaledDeckConfig, type DeckConfig } from "@kridens/core";
-import { TURN_DURATION_OPTIONS_SEC } from "../../config";
+import { SERVER_HTTP_URL, TURN_DURATION_OPTIONS_SEC } from "../../config";
 
 const MAX_TEAMS = 10;
 
@@ -12,6 +12,14 @@ export interface SingleDeviceConfig {
   winScore: number;
   limitScore: boolean;
   allowSkip: boolean;
+  /** Restricts the word pool to one collection; null means every approved word. */
+  collectionId: number | null;
+}
+
+interface CollectionOption {
+  id: number;
+  name: string;
+  wordCount: number;
 }
 
 interface GameSetupProps {
@@ -32,6 +40,31 @@ export default function GameSetup({ maxDeckSize, initialConfig, onStart, onExit 
   const [winScore, setWinScore] = useState(initialConfig?.winScore ?? 20);
   const [limitScore, setLimitScore] = useState(initialConfig?.limitScore ?? false);
   const [allowSkip, setAllowSkip] = useState(initialConfig?.allowSkip ?? true);
+  const [collectionId, setCollectionId] = useState<number | null>(initialConfig?.collectionId ?? null);
+  const [collections, setCollections] = useState<CollectionOption[]>([]);
+
+  useEffect(() => {
+    fetch(`${SERVER_HTTP_URL}/api/collections`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: CollectionOption[]) => setCollections(data))
+      .catch(() => setCollections([]));
+  }, []);
+
+  // No "all words" sentinel in the dropdown — it's just collections, defaulting to the real
+  // "Все слова" collection (or the first available one, if that's been renamed/removed).
+  useEffect(() => {
+    if (collectionId !== null) return;
+    const available = collections.filter((c) => c.wordCount > 0);
+    const defaultCollection = available.find((c) => c.name === "Все слова") ?? available[0];
+    if (defaultCollection) setCollectionId(defaultCollection.id);
+  }, [collections, collectionId]);
+
+  const selectedCollection = collections.find((c) => c.id === collectionId) ?? null;
+  const effectiveMaxDeckSize = selectedCollection ? Math.min(maxDeckSize, selectedCollection.wordCount) : maxDeckSize;
+
+  useEffect(() => {
+    setDeckSize((size) => Math.min(size, effectiveMaxDeckSize));
+  }, [effectiveMaxDeckSize]);
 
   function updateTeamName(index: number, name: string) {
     setTeamNames((names) => names.map((n, i) => (i === index ? name : n)));
@@ -59,14 +92,16 @@ export default function GameSetup({ maxDeckSize, initialConfig, onStart, onExit 
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (selectedCollection?.wordCount === 0) return;
     onStart({
       teamNames,
-      deckConfig: scaledDeckConfig(clamp(deckSize, 4, maxDeckSize)),
+      deckConfig: scaledDeckConfig(clamp(deckSize, 4, effectiveMaxDeckSize)),
       limitWordsPerTurn,
       turnDurationMs: clamp(turnDurationSec, 15, 180) * 1000,
       winScore: Math.max(5, winScore),
       limitScore,
       allowSkip,
+      collectionId,
     });
   }
 
@@ -112,6 +147,21 @@ export default function GameSetup({ maxDeckSize, initialConfig, onStart, onExit 
       <section>
         <h3>Правила</h3>
         <label>
+          Коллекция слов
+          <select value={collectionId ?? ""} onChange={(e) => setCollectionId(Number(e.target.value))}>
+            {collections
+              .filter((c) => c.wordCount > 0)
+              .map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} ({c.wordCount})
+                </option>
+              ))}
+          </select>
+        </label>
+        {selectedCollection?.wordCount === 0 && (
+          <p className="error">В этой коллекции нет слов — выберите другую</p>
+        )}
+        <label>
           Длительность хода, сек
           <select value={turnDurationSec} onChange={(e) => setTurnDurationSec(Number(e.target.value))}>
             {TURN_DURATION_OPTIONS_SEC.map((sec) => (
@@ -127,11 +177,11 @@ export default function GameSetup({ maxDeckSize, initialConfig, onStart, onExit 
             checked={limitWordsPerTurn}
             onChange={(e) => setLimitWordsPerTurn(e.target.checked)}
           />
-          Максимум слов в ходе (макс. {maxDeckSize})
+          Максимум слов в ходе (макс. {effectiveMaxDeckSize})
           <input
             type="number"
             min={4}
-            max={maxDeckSize}
+            max={effectiveMaxDeckSize}
             value={deckSize}
             disabled={!limitWordsPerTurn}
             onChange={(e) => setDeckSize(Number(e.target.value))}
@@ -154,7 +204,7 @@ export default function GameSetup({ maxDeckSize, initialConfig, onStart, onExit 
         </label>
       </section>
 
-      <button type="submit" className="primary">
+      <button type="submit" className="primary" disabled={selectedCollection?.wordCount === 0}>
         Начать игру
       </button>
     </form>

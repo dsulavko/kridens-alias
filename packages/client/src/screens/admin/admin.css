@@ -121,15 +121,19 @@ body.admin-mode #root {
   margin: 0;
 }
 
+.admin-search-row input {
+  width: 100%;
+}
+
 .admin-filters {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 0.6rem;
 }
 
-.admin-filters input {
+.admin-filters select {
   flex: 1;
-  min-width: 160px;
+  min-width: 0;
 }
 
 .admin-bulk-bar {
@@ -224,4 +228,33 @@ body.admin-mode #root {
 
 .admin-table tbody tr:hover {
   background: var(--panel-bg-strong);
+}
+
+.collection-filter-editor {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.collection-filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  flex: 1;
+  min-width: 140px;
+}
+
+.collection-filter-field label {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+.collection-filter-field select[multiple] {
+  width: 100%;
+  border-radius: 0.5rem;
+}
+
+.collection-filter-count {
+  flex-basis: 100%;
+  margin: 0;
 }

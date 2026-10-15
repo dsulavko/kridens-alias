@@ -7,10 +7,15 @@ interface AdminCategoriesListProps {
   onLogout: () => void;
 }
 
+const CATEGORY_NAME_MAX_LENGTH = 100;
+const CATEGORY_NAME_REQUIRED_MESSAGE = "Введите название категории";
+
 export default function AdminCategoriesList({ token, onLogout }: AdminCategoriesListProps) {
   const [categories, setCategories] = useState<CategoryInfo[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
+  const [nameInvalid, setNameInvalid] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<CategoryInfo | null>(null);
 
   function load() {
@@ -33,7 +38,12 @@ export default function AdminCategoriesList({ token, onLogout }: AdminCategories
 
   async function createCategory() {
     const name = newName.trim();
-    if (!name) return;
+    if (!name) {
+      setNameInvalid(true);
+      setError(CATEGORY_NAME_REQUIRED_MESSAGE);
+      return;
+    }
+    setNameInvalid(false);
     try {
       const res = await fetch(`${SERVER_HTTP_URL}/api/admin/categories`, {
         method: "POST",
@@ -50,6 +60,7 @@ export default function AdminCategoriesList({ token, onLogout }: AdminCategories
       }
       if (!res.ok) throw new Error("request failed");
       setNewName("");
+      setShowAddModal(false);
       setError(null);
       load();
     } catch {
@@ -81,19 +92,19 @@ export default function AdminCategoriesList({ token, onLogout }: AdminCategories
     <div className="admin-words">
       <div className="admin-words-header">
         <h2>Категории ({categories?.length ?? "…"})</h2>
+        <button
+          onClick={() => {
+            setNewName("");
+            setNameInvalid(false);
+            setError(null);
+            setShowAddModal(true);
+          }}
+        >
+          Добавить
+        </button>
       </div>
 
-      {error && <p className="error">{error}</p>}
-
-      <div className="admin-create-form">
-        <input
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
-          placeholder="Новая категория"
-          onKeyDown={(e) => e.key === "Enter" && createCategory()}
-        />
-        <button onClick={createCategory}>Добавить</button>
-      </div>
+      {error && !showAddModal && <p className="error">{error}</p>}
 
       {categories === null && !error ? (
         <p>Загрузка…</p>
@@ -128,6 +139,40 @@ export default function AdminCategoriesList({ token, onLogout }: AdminCategories
             </tbody>
           </table>
           {categories?.length === 0 && <p className="muted">Категорий пока нет</p>}
+        </div>
+      )}
+
+      {showAddModal && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <p>Новая категория</p>
+            <input
+              autoFocus
+              className={nameInvalid ? "field-invalid" : undefined}
+              value={newName}
+              maxLength={CATEGORY_NAME_MAX_LENGTH}
+              onChange={(e) => {
+                setNameInvalid(false);
+                setError(null);
+                setNewName(e.target.value);
+              }}
+              placeholder="Название категории"
+              onKeyDown={(e) => e.key === "Enter" && createCategory()}
+            />
+            {error && <p className="error">{error}</p>}
+            <div className="actions">
+              <button
+                onClick={() => {
+                  setShowAddModal(false);
+                  setNameInvalid(false);
+                  setError(null);
+                }}
+              >
+                Отмена
+              </button>
+              <button onClick={createCategory}>Добавить</button>
+            </div>
+          </div>
         </div>
       )}
 

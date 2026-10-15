@@ -67,6 +67,26 @@ export class Room {
     this.usedWordIds = new Set(options.initialUsedWordIds ?? []);
   }
 
+  getRules(): RoomRules {
+    return this.rules;
+  }
+
+  /** Mirrors the guard `updateRules` itself applies — exposed so the WS layer can decide whether
+   * to resolve (and apply) a changed `collectionId`'s word pool *before* calling `updateRules`,
+   * without that lookup ever running for a request that's going to be rejected anyway. */
+  canUpdateRules(requesterId: string): boolean {
+    return requesterId === this.hostId && !this.started;
+  }
+
+  /** Called from the WS layer when `updateRules` is about to apply a changed `collectionId` — DB
+   * access (resolving a collection to its word list) stays there, same as the initial pool fetch
+   * on `create_room`. Resets exhaustion tracking too: the old set's ids belong to a different
+   * pool and would otherwise wrongly exclude same-id words newly in scope. */
+  setWordPool(pool: Word[]) {
+    this.wordPool = pool;
+    this.usedWordIds.clear();
+  }
+
   addPlayer(player: Player) {
     this.players.push(player);
   }
