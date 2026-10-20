@@ -1,9 +1,16 @@
 <!doctype html>
-<html lang="en">
+<html lang="ru" translate="no">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- The UI is Russian-only; a lang/content mismatch (this used to say lang="en") is what
+         makes Chrome on Android offer or silently auto-trigger translation. Translate rewriting
+         text nodes fights with React's own DOM updates on this screen's constantly-changing
+         player/team names and room code, which is what mangled "Комната" into "рей" and
+         "Денвер" into "евро" — so translation is turned off outright rather than just fixing the
+         mismatch, since even a correctly-tagged page can still crash on this conflict. -->
+    <meta name="google" content="notranslate" />
     <title>Kridens Alias</title>
   </head>
   <body>

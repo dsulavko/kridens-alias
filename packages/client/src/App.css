@@ -159,6 +159,12 @@
   font-size: 0.9rem;
 }
 
+.scoreboard-active {
+  background: linear-gradient(135deg, var(--accent-from), var(--accent-to));
+  border-color: transparent;
+  color: #fff;
+}
+
 .turn {
   display: flex;
   flex-direction: column;
@@ -341,6 +347,40 @@ li.muted {
 .host-star {
   color: #f5c451;
   font-size: 0.8rem;
+}
+
+.player-chip-offline {
+  opacity: 0.6;
+}
+
+.player-offline-dot {
+  font-size: 0.75rem;
+}
+
+.chip-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  margin-left: 0.15rem;
+}
+
+.chip-controls .icon-btn {
+  padding: 0.1rem 0.3rem;
+  font-size: 0.75rem;
+  line-height: 1.2;
+}
+
+.chip-remove-btn {
+  color: var(--danger);
+}
+
+.reconnect-banner {
+  background: var(--panel-bg-strong);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-pill);
+  padding: 0.4rem 0.9rem;
+  font-size: 0.85rem;
+  color: var(--text-dim);
 }
 
 .team-drop-grid {

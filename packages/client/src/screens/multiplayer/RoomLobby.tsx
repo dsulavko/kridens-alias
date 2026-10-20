@@ -1,5 +1,12 @@
 import { useEffect, useState } from "react";
-import { pickRandomTeamNames, scaledDeckConfig, type PlayerInfo, type RoomRules, type TeamState } from "@kridens/core";
+import {
+  pickRandomTeamNames,
+  scaledDeckConfig,
+  type PlayerInfo,
+  type RoomRules,
+  type TeamReorderDirection,
+  type TeamState,
+} from "@kridens/core";
 import { SERVER_HTTP_URL, TURN_DURATION_OPTIONS_SEC } from "../../config";
 import Modal from "../../components/Modal";
 import CopyLinkButton from "../../components/CopyLinkButton";
@@ -24,6 +31,9 @@ interface RoomLobbyProps {
   savedRoomGuid: string | null;
   onUpdateRules: (rules: RoomRules) => void;
   onAssignPlayer: (playerId: string, teamId: string) => void;
+  onReorderTeamPlayer: (playerId: string, direction: TeamReorderDirection) => void;
+  onRemoveFromTeam: (playerId: string) => void;
+  onKickPlayer: (playerId: string) => void;
   onShuffleTeams: () => void;
   onStartGame: () => void;
   onSaveRoom: () => void;
@@ -41,6 +51,9 @@ export default function RoomLobby({
   savedRoomGuid,
   onUpdateRules,
   onAssignPlayer,
+  onReorderTeamPlayer,
+  onRemoveFromTeam,
+  onKickPlayer,
   onShuffleTeams,
   onStartGame,
   onSaveRoom,
@@ -162,10 +175,19 @@ export default function RoomLobby({
         <h3>Игроки</h3>
         <ul className="player-chip-list">
           {players.map((p) => (
-            <PlayerChip key={p.id} player={p} isHost={p.id === hostId} draggable={isHost} />
+            <PlayerChip
+              key={p.id}
+              player={p}
+              isHost={p.id === hostId}
+              draggable={isHost}
+              onKick={isHost && p.id !== hostId ? () => onKickPlayer(p.id) : undefined}
+            />
           ))}
           {players.length === 0 && <li className="muted">Пока никого</li>}
         </ul>
+        {isHost && players.some((p) => p.teamId === null) && (
+          <p className="muted">Без команды: эти игроки не участвуют в ходах, пока не будут добавлены в команду.</p>
+        )}
       </section>
 
       <section>
@@ -188,6 +210,9 @@ export default function RoomLobby({
               isHost={isHost}
               canRemove={teams.length > 2}
               onAssignPlayer={onAssignPlayer}
+              onReorderTeamPlayer={onReorderTeamPlayer}
+              onRemoveFromTeam={onRemoveFromTeam}
+              onKickPlayer={onKickPlayer}
               onRename={(name) => renameTeam(i, name)}
               onRemove={() => removeTeam(i)}
             />
@@ -236,10 +261,22 @@ export default function RoomLobby({
   );
 }
 
-function PlayerChip({ player, isHost, draggable }: { player: PlayerInfo; isHost: boolean; draggable: boolean }) {
+function PlayerChip({
+  player,
+  isHost,
+  draggable,
+  onKick,
+}: {
+  player: PlayerInfo;
+  isHost: boolean;
+  draggable: boolean;
+  /** Omitted for the host's own chip and for non-hosts — can't kick the host, and only the host
+   * can kick at all. */
+  onKick?: () => void;
+}) {
   return (
     <li
-      className="player-chip"
+      className={`player-chip${player.connected ? "" : " player-chip-offline"}`}
       draggable={draggable}
       onDragStart={(e) => {
         e.dataTransfer.setData(PLAYER_DRAG_TYPE, player.id);
@@ -250,6 +287,116 @@ function PlayerChip({ player, isHost, draggable }: { player: PlayerInfo; isHost:
       {isHost && (
         <span className="host-star" title="Хост">
           ★
+        </span>
+      )}
+      {!player.connected && (
+        <span className="player-offline-dot" title="Нет связи">
+          ⚠️
+        </span>
+      )}
+      {onKick && (
+        <button
+          type="button"
+          className="icon-btn chip-remove-btn"
+          aria-label={`Удалить ${player.name} из комнаты`}
+          title="Удалить из комнаты"
+          onClick={onKick}
+        >
+          ×
+        </button>
+      )}
+    </li>
+  );
+}
+
+/** A player row inside a team's roster — same look as `PlayerChip` plus reorder arrows (the
+ * roster order here is exactly what `start_game` turns into turn order) and a button to take
+ * them off the team without removing them from the room. */
+function TeamMemberChip({
+  player,
+  isHost,
+  draggable,
+  showControls,
+  canMoveUp,
+  canMoveDown,
+  onMoveUp,
+  onMoveDown,
+  onRemoveFromTeam,
+  onKick,
+}: {
+  player: PlayerInfo;
+  isHost: boolean;
+  draggable: boolean;
+  showControls: boolean;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  onRemoveFromTeam: () => void;
+  onKick?: () => void;
+}) {
+  return (
+    <li
+      className={`player-chip${player.connected ? "" : " player-chip-offline"}`}
+      draggable={draggable}
+      onDragStart={(e) => {
+        e.dataTransfer.setData(PLAYER_DRAG_TYPE, player.id);
+        e.dataTransfer.effectAllowed = "move";
+      }}
+    >
+      {player.name}
+      {isHost && (
+        <span className="host-star" title="Хост">
+          ★
+        </span>
+      )}
+      {!player.connected && (
+        <span className="player-offline-dot" title="Нет связи">
+          ⚠️
+        </span>
+      )}
+      {showControls && (
+        <span className="chip-controls">
+          <button
+            type="button"
+            className="icon-btn"
+            aria-label="Сдвинуть выше"
+            title="Сдвинуть выше"
+            disabled={!canMoveUp}
+            onClick={onMoveUp}
+          >
+            ↑
+          </button>
+          <button
+            type="button"
+            className="icon-btn"
+            aria-label="Сдвинуть ниже"
+            title="Сдвинуть ниже"
+            disabled={!canMoveDown}
+            onClick={onMoveDown}
+          >
+            ↓
+          </button>
+          <button
+            type="button"
+            className="icon-btn"
+            aria-label={`Снять ${player.name} с команды`}
+            title="Снять с команды"
+            onClick={onRemoveFromTeam}
+          >
+            ⤵
+          </button>
+          {onKick && (
+            <button
+              type="button"
+              className="icon-btn chip-remove-btn"
+              aria-label={`Удалить ${player.name} из комнаты`}
+              title="Удалить из комнаты"
+              onClick={onKick}
+            >
+              ×
+            </button>
+          )}
         </span>
       )}
     </li>
@@ -264,6 +411,9 @@ function TeamDropZone({
   isHost,
   canRemove,
   onAssignPlayer,
+  onReorderTeamPlayer,
+  onRemoveFromTeam,
+  onKickPlayer,
   onRename,
   onRemove,
 }: {
@@ -274,6 +424,9 @@ function TeamDropZone({
   isHost: boolean;
   canRemove: boolean;
   onAssignPlayer: (playerId: string, teamId: string) => void;
+  onReorderTeamPlayer: (playerId: string, direction: TeamReorderDirection) => void;
+  onRemoveFromTeam: (playerId: string) => void;
+  onKickPlayer: (playerId: string) => void;
   onRename: (name: string) => void;
   onRemove: () => void;
 }) {
@@ -373,8 +526,20 @@ function TeamDropZone({
         </div>
       )}
       <ul>
-        {players.map((p) => (
-          <PlayerChip key={p.id} player={p} isHost={p.id === hostId} draggable={isHost} />
+        {players.map((p, i) => (
+          <TeamMemberChip
+            key={p.id}
+            player={p}
+            isHost={p.id === hostId}
+            draggable={isHost}
+            showControls={isHost}
+            canMoveUp={i > 0}
+            canMoveDown={i < players.length - 1}
+            onMoveUp={() => onReorderTeamPlayer(p.id, "up")}
+            onMoveDown={() => onReorderTeamPlayer(p.id, "down")}
+            onRemoveFromTeam={() => onRemoveFromTeam(p.id)}
+            onKick={p.id !== hostId ? () => onKickPlayer(p.id) : undefined}
+          />
         ))}
         {players.length === 0 && <li className="muted">Пока никого</li>}
       </ul>

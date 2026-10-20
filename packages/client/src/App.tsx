@@ -18,10 +18,24 @@ function savedRoomGuidFromUrl(): string | null {
   return new URLSearchParams(window.location.search).get("saved");
 }
 
+/** Set by useRoomConnection whenever we're confirmed to be seated in a room — checked here so
+ * that a full page reload mid-game (iOS Safari discarding a backgrounded tab, not just dropping
+ * its socket) still lands back in the game via `rejoin_room` instead of bouncing to the home
+ * screen and forcing a fresh join. */
+function hasStoredActiveRoom(): boolean {
+  try {
+    return Boolean(sessionStorage.getItem("kridens-active-room"));
+  } catch {
+    return false;
+  }
+}
+
 function App() {
   const [initialJoinCode] = useState(roomCodeFromUrl);
   const [initialSavedRoomGuid] = useState(savedRoomGuidFromUrl);
-  const [mode, setMode] = useState<Mode>(initialJoinCode || initialSavedRoomGuid ? "multiplayer" : "home");
+  const [mode, setMode] = useState<Mode>(
+    initialJoinCode || initialSavedRoomGuid || hasStoredActiveRoom() ? "multiplayer" : "home",
+  );
 
   if (window.location.pathname === "/admin") return <AdminConsole />;
 

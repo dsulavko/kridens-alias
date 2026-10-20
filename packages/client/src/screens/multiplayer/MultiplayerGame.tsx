@@ -18,6 +18,7 @@ type LobbyMode = "choice" | "create" | "join";
 export default function MultiplayerGame({ initialJoinCode, initialSavedRoomGuid, onExit }: MultiplayerGameProps) {
   const {
     status,
+    reconnecting,
     roomCode,
     teams,
     players,
@@ -26,11 +27,15 @@ export default function MultiplayerGame({ initialJoinCode, initialSavedRoomGuid,
     rules,
     started,
     activePlayerId,
+    activePlayerConnected,
     turn,
     winnerId,
     savedRoomGuid,
     error,
     roomClosed,
+    kicked,
+    hostAbandonDeadline,
+    clientId,
     send,
   } = useRoomConnection();
   const viaLink = Boolean(initialJoinCode) || Boolean(initialSavedRoomGuid);
@@ -62,6 +67,13 @@ export default function MultiplayerGame({ initialJoinCode, initialSavedRoomGuid,
     const interval = setInterval(() => setNow(Date.now()), 250);
     return () => clearInterval(interval);
   }, [turn?.phase, turn?.paused]);
+
+  useLayoutEffect(() => {
+    if (hostAbandonDeadline === null) return;
+    setNow(Date.now());
+    const interval = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(interval);
+  }, [hostAbandonDeadline]);
 
   useEffect(() => {
     if (joinCode.length !== 4) {
@@ -102,7 +114,23 @@ export default function MultiplayerGame({ initialJoinCode, initialSavedRoomGuid,
     );
   }
 
+  if (kicked) {
+    return (
+      <div className="screen">
+        <Modal>
+          <p>Хост удалил вас из комнаты.</p>
+          <button className="primary" onClick={onExit}>
+            Принять
+          </button>
+        </Modal>
+      </div>
+    );
+  }
+
   if (!roomCode) {
+    if (reconnecting) {
+      return <div className="screen">🔄 Переподключение к комнате…</div>;
+    }
     return (
       <div className="screen">
         {!viaLink && (
@@ -141,8 +169,8 @@ export default function MultiplayerGame({ initialJoinCode, initialSavedRoomGuid,
               onClick={() =>
                 send(
                   initialSavedRoomGuid
-                    ? { type: "create_room", playerName, savedRoomGuid: initialSavedRoomGuid }
-                    : { type: "create_room", playerName },
+                    ? { type: "create_room", playerName, clientId, savedRoomGuid: initialSavedRoomGuid }
+                    : { type: "create_room", playerName, clientId },
                 )
               }
             >
@@ -172,7 +200,7 @@ export default function MultiplayerGame({ initialJoinCode, initialSavedRoomGuid,
             <button
               className="primary"
               disabled={status !== "open" || !joinRoomFound || !playerName.trim()}
-              onClick={() => send({ type: "join_room", roomCode: joinCode, playerName })}
+              onClick={() => send({ type: "join_room", roomCode: joinCode, playerName, clientId })}
             >
               Войти
             </button>
@@ -186,24 +214,46 @@ export default function MultiplayerGame({ initialJoinCode, initialSavedRoomGuid,
     return <div className="screen">Загрузка комнаты…</div>;
   }
 
+  const reconnectingBanner = reconnecting && (
+    <p className="reconnect-banner">🔄 Переподключение…</p>
+  );
+
+  const hostAbandonSecondsLeft =
+    hostAbandonDeadline !== null ? Math.max(0, Math.ceil((hostAbandonDeadline - now) / 1000)) : null;
+  const hostAbandonModal = hostAbandonSecondsLeft !== null && (
+    <Modal>
+      <p>
+        Хост отключился и не возвращается. Комната будет закрыта через {hostAbandonSecondsLeft}{" "}
+        {pluralizeSeconds(hostAbandonSecondsLeft)}.
+      </p>
+    </Modal>
+  );
+
   if (!started) {
     return (
-      <RoomLobby
-        roomCode={roomCode}
-        teams={teams}
-        players={players}
-        rules={rules}
-        hostId={hostId ?? ""}
-        isHost={yourId === hostId}
-        savedRoomGuid={savedRoomGuid}
-        onUpdateRules={(newRules) => send({ type: "update_rules", rules: newRules })}
-        onAssignPlayer={(playerId, teamId) => send({ type: "assign_player", playerId, teamId })}
-        onShuffleTeams={() => send({ type: "shuffle_teams" })}
-        onStartGame={() => send({ type: "start_game" })}
-        onSaveRoom={() => send({ type: "save_room" })}
-        onExit={handleExitRoom}
-        onCloseRoom={handleCloseRoom}
-      />
+      <>
+        {reconnectingBanner}
+        {hostAbandonModal}
+        <RoomLobby
+          roomCode={roomCode}
+          teams={teams}
+          players={players}
+          rules={rules}
+          hostId={hostId ?? ""}
+          isHost={yourId === hostId}
+          savedRoomGuid={savedRoomGuid}
+          onUpdateRules={(newRules) => send({ type: "update_rules", rules: newRules })}
+          onAssignPlayer={(playerId, teamId) => send({ type: "assign_player", playerId, teamId })}
+          onReorderTeamPlayer={(playerId, direction) => send({ type: "reorder_team_player", playerId, direction })}
+          onRemoveFromTeam={(playerId) => send({ type: "remove_from_team", playerId })}
+          onKickPlayer={(playerId) => send({ type: "kick_player", playerId })}
+          onShuffleTeams={() => send({ type: "shuffle_teams" })}
+          onStartGame={() => send({ type: "start_game" })}
+          onSaveRoom={() => send({ type: "save_room" })}
+          onExit={handleExitRoom}
+          onCloseRoom={handleCloseRoom}
+        />
+      </>
     );
   }
 
@@ -213,6 +263,7 @@ export default function MultiplayerGame({ initialJoinCode, initialSavedRoomGuid,
     const isHost = yourId === hostId;
     return (
       <div className="screen">
+        {hostAbandonModal}
         <h2>🏆 Победила команда «{winner?.name}»!</h2>
         <ul className="scoreboard gameover-score">
           {sorted.map((t) => (
@@ -248,13 +299,20 @@ export default function MultiplayerGame({ initialJoinCode, initialSavedRoomGuid,
   const activeTeam = teams.find((t) => t.id === activePlayer?.teamId);
   const guessers = players.filter((p) => p.teamId === activePlayer?.teamId && p.id !== activePlayerId);
   const isHost = yourId === hostId;
+  const you = players.find((p) => p.id === yourId);
+  // A teammate still guessing — including after time's up, right up until the explainer passes
+  // the turn — shouldn't see which words are already marked guessed/skipped: they may still be
+  // shouting out the last word, and seeing the recap would spoil whether it already counted.
+  const isGuessingTeammate = !isActive && you?.teamId === activeTeam?.id;
 
   return (
     <div className="screen">
+      {reconnectingBanner}
+      {hostAbandonModal}
       <div className="game-header-row">
         <ul className="scoreboard">
           {teams.map((t) => (
-            <li key={t.id}>
+            <li key={t.id} className={t.id === activeTeam?.id ? "scoreboard-active" : undefined}>
               {t.name}: {t.score}
             </li>
           ))}
@@ -273,34 +331,74 @@ export default function MultiplayerGame({ initialJoinCode, initialSavedRoomGuid,
 
       {!turn &&
         (isActive ? (
-          <button className="primary" onClick={() => send({ type: "start_turn" })}>
-            Начать ход
-          </button>
+          <>
+            <button className="primary" onClick={() => send({ type: "start_turn" })}>
+              Начать ход
+            </button>
+            <p className="guessers">
+              Команда «{activeTeam?.name}»{guessers.length > 0 ? ` угадывает: ${guessers.map((p) => p.name).join(", ")}` : " угадывает"}
+            </p>
+          </>
         ) : (
-          <p>Ход: {activePlayer?.name ?? "…"}</p>
+          <>
+            <p>Ход: {activePlayer?.name ?? "…"}{!activePlayerConnected && " (нет связи)"}</p>
+            {isHost && !activePlayerConnected && (
+              <div className="actions">
+                <button onClick={() => send({ type: "skip_disconnected_turn" })}>
+                  Пропустить игрока без связи
+                </button>
+                {activePlayerId && (
+                  <button className="danger" onClick={() => send({ type: "kick_player", playerId: activePlayerId })}>
+                    Удалить из комнаты
+                  </button>
+                )}
+              </div>
+            )}
+          </>
         ))}
 
       {turn?.phase === "ended" && (
         <div className="turn">
-          <ul className="recap-list">
-            {turn.deck.slice(0, turn.currentIndex).map((w) => (
-              <li
-                key={w.id}
-                className={`recap-item ${turn.guessedWordIds.includes(w.id) ? "guessed" : "skipped"}${
-                  isActive ? "" : " readonly"
-                }`}
-                onClick={isActive ? () => send({ type: "toggle_word", wordId: w.id }) : undefined}
-              >
-                {w.text}
-              </li>
-            ))}
-          </ul>
+          {/* Guessing teammates don't get the recap at all — they may still be shouting out the
+              last word right up until the explainer passes the turn, and seeing which words are
+              already marked guessed/skipped would spoil whether it's already counted. Everyone
+              else (the explainer themself, or anyone not on the guessing team) sees it as before. */}
+          {!isGuessingTeammate && (
+            <ul className="recap-list">
+              {turn.deck.slice(0, turn.currentIndex).map((w) => (
+                <li
+                  key={w.id}
+                  className={`recap-item ${turn.guessedWordIds.includes(w.id) ? "guessed" : "skipped"}${
+                    isActive ? "" : " readonly"
+                  }`}
+                  onClick={isActive ? () => send({ type: "toggle_word", wordId: w.id }) : undefined}
+                >
+                  {w.text}
+                </li>
+              ))}
+            </ul>
+          )}
           {isActive ? (
             <button className="primary" onClick={() => send({ type: "next_turn" })}>
               Передать ход
             </button>
           ) : (
-            <p>{activePlayer?.name} проверяет ход</p>
+            <>
+              <p>{activePlayer?.name} проверяет ход{!activePlayerConnected && " (нет связи)"}</p>
+              {isHost && !activePlayerConnected && (
+                <div className="actions">
+                  <button onClick={() => send({ type: "next_turn" })}>Передать ход за него</button>
+                  {activePlayerId && (
+                    <button
+                      className="danger"
+                      onClick={() => send({ type: "kick_player", playerId: activePlayerId })}
+                    >
+                      Удалить из комнаты
+                    </button>
+                  )}
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
@@ -332,13 +430,26 @@ export default function MultiplayerGame({ initialJoinCode, initialSavedRoomGuid,
               {word.text}
             </div>
           ) : (
-            <p>{activePlayer?.name} объясняет слово</p>
+            <p>{activePlayer?.name} объясняет слово{!activePlayerConnected && " (нет связи)"}</p>
           )}
           <p className="guessers">
             Команда «{activeTeam?.name}»{guessers.length > 0 ? ` угадывает: ${guessers.map((p) => p.name).join(", ")}` : " угадывает"}
           </p>
+          {isHost && !activePlayerConnected && activePlayerId && (
+            <button className="danger" onClick={() => send({ type: "kick_player", playerId: activePlayerId })}>
+              Удалить из комнаты (не дожидаясь конца хода)
+            </button>
+          )}
         </div>
       )}
     </div>
   );
+}
+
+function pluralizeSeconds(n: number): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return "секунду";
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return "секунды";
+  return "секунд";
 }

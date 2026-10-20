@@ -19,6 +19,10 @@ export class RoomManager {
     while (this.rooms.has(code)) code = generateRoomCode();
 
     const room = new Room(code, hostId, wordPool, options);
+    // A room whose host never reconnects (closed tab, abandoned for a different room, etc.)
+    // closes itself after a grace period — drop it from the registry the same way an explicit
+    // close_room does, so it stops being joinable and doesn't linger in memory forever.
+    room.onAbandoned = () => this.rooms.delete(code);
     this.rooms.set(code, room);
     return room;
   }

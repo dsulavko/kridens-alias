@@ -116,14 +116,34 @@ export interface RoomRules {
 export interface PlayerInfo {
   id: string;
   name: string;
-  teamId: string;
+  /** Null means "in the room but not on any team" — see Room.removeFromTeam. Such a player sits
+   * out of the turn order entirely until the host assigns them (or the game) a team. */
+  teamId: string | null;
+  /** False while this player's socket is disconnected but their seat is held open for
+   * reconnection (e.g. a dropped connection mid-game) — see Room.removeSocket/reconnectPlayer. */
+  connected: boolean;
 }
 
+export type TeamReorderDirection = "up" | "down";
+
 export type ClientMessage =
-  | { type: "create_room"; playerName: string; savedRoomGuid?: string }
-  | { type: "join_room"; roomCode: string; playerName: string }
+  | { type: "create_room"; playerName: string; clientId: string; savedRoomGuid?: string }
+  | { type: "join_room"; roomCode: string; playerName: string; clientId: string }
+  /** Sent automatically by the client after a dropped connection (or a page reload that kept
+   * `clientId` in sessionStorage) to reclaim an existing seat instead of joining as a new player. */
+  | { type: "rejoin_room"; roomCode: string; clientId: string }
   | { type: "update_rules"; rules: RoomRules }
   | { type: "assign_player"; playerId: string; teamId: string }
+  /** Host-only, lobby-only: swaps a player with their same-team neighbor above/below — the
+   * resulting team order is what `start_game` turns into the turn order. */
+  | { type: "reorder_team_player"; playerId: string; direction: TeamReorderDirection }
+  /** Host-only: takes a player off their team without removing them from the room — they're
+   * still present (e.g. to reassign later) but sit out of the turn order until reassigned. */
+  | { type: "remove_from_team"; playerId: string }
+  /** Host-only: removes a player from the room entirely (e.g. they're stuck disconnected and
+   * won't come back). Unlike `remove_from_team`, this also drops their turn-order slot and, if
+   * they were mid-turn when kicked, ends that turn immediately. */
+  | { type: "kick_player"; playerId: string }
   | { type: "shuffle_teams" }
   | { type: "start_game" }
   | { type: "save_room" }
@@ -135,6 +155,9 @@ export type ClientMessage =
   | { type: "resume_turn" }
   | { type: "toggle_word"; wordId: number }
   | { type: "next_turn" }
+  /** Host-only: advances past a disconnected player whose turn is stuck between turns (they
+   * never tapped "Начать ход" / "Передать ход"). See Room.skipDisconnectedTurn. */
+  | { type: "skip_disconnected_turn" }
   | { type: "play_again" }
   | { type: "new_setup" }
   | { type: "leave_room" }
@@ -151,6 +174,10 @@ export type ServerMessage =
       rules: RoomRules;
       started: boolean;
       activePlayerId: string | null;
+      /** False when the active player's socket is currently disconnected — lets clients show a
+       * "waiting for reconnection" state instead of a stuck blank name, and lets the host see
+       * when `skip_disconnected_turn` is available. */
+      activePlayerConnected: boolean;
       turn: TurnState | null;
       winnerId: string | null;
       /** Set once the host saves the room — a link built from it recreates a room whose word
@@ -158,6 +185,16 @@ export type ServerMessage =
        * live sessions. Null until saved; `save_room` is a one-shot action, so it never changes
        * back. */
       savedRoomGuid: string | null;
+      /** Unix ms timestamp when this room will be force-closed because its host has been
+       * disconnected too long — null whenever the host is connected (or still within the initial
+       * grace period, before the countdown starts). Clients compute their own remaining-seconds
+       * display from this against their local clock, the same way the turn timer does, rather
+       * than trust a server-pushed countdown number that could desync from message delivery
+       * delays. Cleared the moment the host reconnects. */
+      hostAbandonDeadline: number | null;
     }
   | { type: "error"; message: string }
-  | { type: "room_closed" };
+  | { type: "room_closed" }
+  /** Sent to a player's own socket right before the host's `kick_player` removes them from the
+   * room — distinct from `room_closed` (whole room gone) since everyone else keeps playing. */
+  | { type: "kicked" };
