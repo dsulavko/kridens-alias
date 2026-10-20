@@ -18,18 +18,21 @@
 }
 
 .game-header-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
+  position: relative;
 }
 
-.game-header-row .scoreboard {
-  flex: 1;
+/* The gear button is absolutely positioned (so the scoreboard can center across the row's
+   full width instead of just the space left over beside it) — this reserves room for it on
+   the right, only when it's actually rendered, so a wide scoreboard never wraps text underneath
+   it. */
+.game-header-row-with-menu {
+  padding-right: 2.7rem;
 }
 
 .host-menu {
-  position: relative;
-  flex-shrink: 0;
+  position: absolute;
+  top: 0;
+  right: 0;
 }
 
 .host-menu-trigger {
@@ -159,7 +162,7 @@
   font-size: 0.9rem;
 }
 
-.scoreboard-active {
+.scoreboard li.scoreboard-active {
   border: 3px solid var(--accent-from);
   padding: calc(0.4rem - 2px) calc(1rem - 2px);
 }

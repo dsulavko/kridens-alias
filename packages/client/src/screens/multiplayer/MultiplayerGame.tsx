@@ -309,7 +309,7 @@ export default function MultiplayerGame({ initialJoinCode, initialSavedRoomGuid,
     <div className="screen">
       {reconnectingBanner}
       {hostAbandonModal}
-      <div className="game-header-row">
+      <div className={`game-header-row${isHost ? " game-header-row-with-menu" : ""}`}>
         <ul className="scoreboard">
           {teams.map((t) => (
             <li key={t.id} className={t.id === activeTeam?.id ? "scoreboard-active" : undefined}>
