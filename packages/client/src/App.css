@@ -160,9 +160,8 @@
 }
 
 .scoreboard-active {
-  background: linear-gradient(135deg, var(--accent-from), var(--accent-to));
-  border-color: transparent;
-  color: #fff;
+  border: 3px solid var(--accent-from);
+  padding: calc(0.4rem - 2px) calc(1rem - 2px);
 }
 
 .turn {
