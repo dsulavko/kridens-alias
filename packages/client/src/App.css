@@ -337,6 +337,22 @@ section {
   cursor: grab;
 }
 
+/* Inside a team's roster the chip's container is narrow (team-drop-grid cells are as little as
+   160px) — without this a long name pushes the chip (and the whole card) wider than the team's
+   own card instead of truncating. A flex item's default min-width is its content's width, which
+   is exactly what needs overriding here so the chip can actually shrink to fit. */
+.team-drop .player-chip {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.player-chip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
 li.muted {
   color: var(--text-dim);
   background: transparent;

@@ -212,7 +212,6 @@ export default function RoomLobby({
               onAssignPlayer={onAssignPlayer}
               onReorderTeamPlayer={onReorderTeamPlayer}
               onRemoveFromTeam={onRemoveFromTeam}
-              onKickPlayer={onKickPlayer}
               onRename={(name) => renameTeam(i, name)}
               onRemove={() => removeTeam(i)}
             />
@@ -311,7 +310,9 @@ function PlayerChip({
 
 /** A player row inside a team's roster — same look as `PlayerChip` plus reorder arrows (the
  * roster order here is exactly what `start_game` turns into turn order) and a button to take
- * them off the team without removing them from the room. */
+ * them off the team without removing them from the room. Removing a player from the room
+ * entirely is only done from the "Игроки" list above (`PlayerChip`'s kick button) — doing it
+ * here too would be a second, redundant place for the same action. */
 function TeamMemberChip({
   player,
   isHost,
@@ -322,7 +323,6 @@ function TeamMemberChip({
   onMoveUp,
   onMoveDown,
   onRemoveFromTeam,
-  onKick,
 }: {
   player: PlayerInfo;
   isHost: boolean;
@@ -333,7 +333,6 @@ function TeamMemberChip({
   onMoveUp: () => void;
   onMoveDown: () => void;
   onRemoveFromTeam: () => void;
-  onKick?: () => void;
 }) {
   return (
     <li
@@ -344,7 +343,7 @@ function TeamMemberChip({
         e.dataTransfer.effectAllowed = "move";
       }}
     >
-      {player.name}
+      <span className="player-chip-name">{player.name}</span>
       {isHost && (
         <span className="host-star" title="Хост">
           ★
@@ -386,17 +385,6 @@ function TeamMemberChip({
           >
             ⤵
           </button>
-          {onKick && (
-            <button
-              type="button"
-              className="icon-btn chip-remove-btn"
-              aria-label={`Удалить ${player.name} из комнаты`}
-              title="Удалить из комнаты"
-              onClick={onKick}
-            >
-              ×
-            </button>
-          )}
         </span>
       )}
     </li>
@@ -413,7 +401,6 @@ function TeamDropZone({
   onAssignPlayer,
   onReorderTeamPlayer,
   onRemoveFromTeam,
-  onKickPlayer,
   onRename,
   onRemove,
 }: {
@@ -426,7 +413,6 @@ function TeamDropZone({
   onAssignPlayer: (playerId: string, teamId: string) => void;
   onReorderTeamPlayer: (playerId: string, direction: TeamReorderDirection) => void;
   onRemoveFromTeam: (playerId: string) => void;
-  onKickPlayer: (playerId: string) => void;
   onRename: (name: string) => void;
   onRemove: () => void;
 }) {
@@ -538,7 +524,6 @@ function TeamDropZone({
             onMoveUp={() => onReorderTeamPlayer(p.id, "up")}
             onMoveDown={() => onReorderTeamPlayer(p.id, "down")}
             onRemoveFromTeam={() => onRemoveFromTeam(p.id)}
-            onKick={p.id !== hostId ? () => onKickPlayer(p.id) : undefined}
           />
         ))}
         {players.length === 0 && <li className="muted">Пока никого</li>}
