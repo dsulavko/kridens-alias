@@ -335,9 +335,9 @@ export default function MultiplayerGame({ initialJoinCode, initialSavedRoomGuid,
             <button className="primary" onClick={() => send({ type: "start_turn" })}>
               Начать ход
             </button>
-            <p className="guessers">
-              Команда «{activeTeam?.name}»{guessers.length > 0 ? ` угадывает: ${guessers.map((p) => p.name).join(", ")}` : " угадывает"}
-            </p>
+            {guessers.length > 0 && (
+              <p className="guessers">Угадывает: {guessers.map((p) => p.name).join(", ")}</p>
+            )}
           </>
         ) : (
           <>
@@ -432,9 +432,9 @@ export default function MultiplayerGame({ initialJoinCode, initialSavedRoomGuid,
           ) : (
             <p>{activePlayer?.name} объясняет слово{!activePlayerConnected && " (нет связи)"}</p>
           )}
-          <p className="guessers">
-            Команда «{activeTeam?.name}»{guessers.length > 0 ? ` угадывает: ${guessers.map((p) => p.name).join(", ")}` : " угадывает"}
-          </p>
+          {guessers.length > 0 && (
+            <p className="guessers">Угадывает: {guessers.map((p) => p.name).join(", ")}</p>
+          )}
           {isHost && !activePlayerConnected && activePlayerId && (
             <button className="danger" onClick={() => send({ type: "kick_player", playerId: activePlayerId })}>
               Удалить из комнаты (не дожидаясь конца хода)
